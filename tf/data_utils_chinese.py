@@ -49,53 +49,18 @@ class Corpus(object):
         self.dataset = dataset
         self.vocab = Vocab(*args, **kwargs)
 
-        if self.dataset in ["ptb", "wt2", "enwik8", "text8"]:
-            self.vocab.count_file(os.path.join(path, "train.txt"))
-            self.vocab.count_file(os.path.join(path, "valid.txt"))
-            self.vocab.count_file(os.path.join(path, "test.txt"))
-        elif self.dataset == "wt103":
-            self.vocab.count_file(os.path.join(path, "train.txt"))
-        elif self.dataset == "lm1b":
-            train_path_pattern = os.path.join(
-                path, "1-billion-word-language-modeling-benchmark-r13output",
-                "training-monolingual.tokenized.shuffled", "news.en-*")
-            train_paths = glob(train_path_pattern)
-
-            # the vocab will load from file when build_vocab() is called
-            # for train_path in sorted(train_paths):
-            #   self.vocab.count_file(train_path, verbose=True)
-
+        self.vocab.count_file(os.path.join(path, "train.txt"))
         self.vocab.build_vocab()
 
-        if self.dataset in ["ptb", "wt2", "wt103"]:
-            self.train = self.vocab.encode_file(
-                os.path.join(path, "train.txt"), ordered=True)
-            self.valid = self.vocab.encode_file(
-                os.path.join(path, "valid.txt"), ordered=True)
-            self.test = self.vocab.encode_file(
-                os.path.join(path, "test.txt"), ordered=True)
-        elif self.dataset in ["enwik8", "text8"]:
-            self.train = self.vocab.encode_file(
-                os.path.join(path, "train.txt"), ordered=True, add_eos=False)
-            self.valid = self.vocab.encode_file(
-                os.path.join(path, "valid.txt"), ordered=True, add_eos=False)
-            self.test = self.vocab.encode_file(
-                os.path.join(path, "test.txt"), ordered=True, add_eos=False)
-        elif self.dataset == "lm1b":
-            self.train = train_paths
-            valid_path = os.path.join(path, "valid.txt")
-            test_path = valid_path
-            self.valid = self.vocab.encode_file(
-                valid_path, ordered=True, add_double_eos=True)
-            self.test = self.vocab.encode_file(
-                test_path, ordered=True, add_double_eos=True)
+        self.train = self.vocab.encode_file(
+            os.path.join(path, "train.txt"), ordered=True)
+        self.valid = self.vocab.encode_file(
+            os.path.join(path, "train.txt"), ordered=True)
+        self.test = self.vocab.encode_file(
+            os.path.join(path, "train.txt"), ordered=True)
 
-        if self.dataset == "wt103":
-            self.cutoffs = [0, 20000, 40000, 200000] + [len(self.vocab)]
-        elif self.dataset == "lm1b":
-            self.cutoffs = [0, 60000, 100000, 640000] + [len(self.vocab)]
-        else:
-            self.cutoffs = []
+        self.cutoffs = []
+
 
     def convert_to_tfrecords(self, split, save_dir, bsz, tgt_len,
                              num_core_per_host, **kwargs):
@@ -113,7 +78,7 @@ class Corpus(object):
 
         record_info_path = os.path.join(save_dir, record_name)
 
-        if self.dataset in ["ptb", "wt2", "wt103", "enwik8", "text8"]:
+        if self.dataset in ["ptb", "wt2", "wt103", "enwik8", "text8", "doupo"]:
             data = getattr(self, split)
 
             print('----------{}--------------{}--------'.format(bsz, num_core_per_host))
@@ -125,49 +90,6 @@ class Corpus(object):
                 num_passes=FLAGS.num_passes if split == 'train' and use_tpu else 1,
                 use_tpu=use_tpu)
             file_names.append(file_name)
-        elif self.dataset == "lm1b":
-            bin_sizes = get_bin_sizes(
-                self.valid, bsz // num_core_per_host, tgt_len, self.cutoffs)
-            if split == "train":
-                np.random.seed(123456)
-                num_batch = 0
-
-                if FLAGS.num_procs > 1:
-                    _preprocess_wrapper = partial(_preprocess,
-                                                  train=self.train, vocab=self.vocab, save_dir=save_dir,
-                                                  cutoffs=self.cutoffs, bin_sizes=bin_sizes, bsz=bsz,
-                                                  tgt_len=tgt_len, num_core_per_host=num_core_per_host,
-                                                  use_tpu=use_tpu, num_shuffle=FLAGS.num_shuffle)
-
-                    pool = mp.Pool(processes=FLAGS.num_procs)
-                    results = pool.map(_preprocess_wrapper, range(len(self.train)))
-                    for res in results:
-                        file_names.extend(res[0])
-                        num_batch += res[1]
-                else:
-                    for shard, path in enumerate(self.train):
-                        data_shard = self.vocab.encode_file(path, ordered=False,
-                                                            add_double_eos=True)
-
-                        num_shuffle = FLAGS.num_shuffle
-
-                        for shuffle in range(num_shuffle):
-                            print("Processing shard {} shuffle {}".format(shard, shuffle))
-                            basename = "train-{:03d}-{:02d}".format(shard, shuffle)
-                            np.random.shuffle(data_shard)
-                            file_name, num_batch_ = create_ordered_tfrecords(
-                                save_dir, basename, np.concatenate(data_shard), bsz, tgt_len,
-                                num_core_per_host,
-                                self.cutoffs, bin_sizes, use_tpu=use_tpu)
-                            file_names.append(file_name)
-                            num_batch += num_batch_
-
-            else:
-                file_name, num_batch = create_ordered_tfrecords(
-                    save_dir, split, getattr(self, split), bsz, tgt_len,
-                    num_core_per_host,
-                    self.cutoffs, bin_sizes, use_tpu=use_tpu)
-                file_names.append(file_name)
 
         with open(record_info_path, "w") as fp:
             record_info = {
@@ -349,18 +271,9 @@ def get_lm_corpus(data_dir, dataset):
     else:
         print("Producing dataset...")
         kwargs = {}
-        if dataset in ["wt103", "wt2"]:
+        if dataset in ["doupo", "test"]:
             kwargs["special"] = ["<eos>"]
             kwargs["lower_case"] = False
-        elif dataset == "ptb":
-            kwargs["special"] = ["<eos>"]
-            kwargs["lower_case"] = True
-        elif dataset == "lm1b":
-            kwargs["special"] = []
-            kwargs["lower_case"] = False
-            kwargs["vocab_file"] = os.path.join(data_dir, "1b_word_vocab.txt")
-        elif dataset in ["enwik8", "text8"]:
-            pass
 
         corpus = Corpus(data_dir, dataset, **kwargs)
 
@@ -562,8 +475,8 @@ if __name__ == "__main__":
     FLAGS = flags.FLAGS
     flags.DEFINE_string("data_dir", None,
                         help="Location of the data corpus")
-    flags.DEFINE_enum("dataset", "wt103",
-                      ["ptb", "wt2", "wt103", "lm1b", "enwik8", "text8"],
+    flags.DEFINE_enum("dataset", "doupo",
+                      ["ptb", "wt2", "wt103", "lm1b", "enwik8", "text8", "doupo"],
                       help="Dataset name.")
     flags.DEFINE_integer("per_host_train_bsz", 60,
                          help="train batch size each host")
@@ -576,7 +489,7 @@ if __name__ == "__main__":
                          help="number of tokens to predict")
     flags.DEFINE_integer("max_batch", -1,
                          help="run in debug mode")
-    flags.DEFINE_integer("num_core_per_host", 3,
+    flags.DEFINE_integer("num_core_per_host", 2,
                          help="8 for TPU v2.")
     flags.DEFINE_bool("debug", default=False,
                       help="Process only the first batch without shuffle for lm1b.")

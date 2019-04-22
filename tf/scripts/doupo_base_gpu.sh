@@ -1,7 +1,9 @@
+#!/usr/bin/env bash
+
 #!/bin/bash
 
 # Data
-DATA_ROOT=../data/wikitext-103/
+DATA_ROOT=../data/doupo/
 
 # Model
 DIV_VAL=1
@@ -16,8 +18,8 @@ D_INNER=2100
 TGT_LEN=50
 MEM_LEN=50
 
-BSZ=6
-NUM_CORE=3
+BSZ=64
+NUM_CORE=2
 
 # Testing
 TEST_TGT_LEN=64
@@ -29,9 +31,9 @@ TEST_NUM_CORE=1
 
 
 if [[ $1 == 'train_data' ]]; then
-    python data_utils.py \
+    python data_utils_chinese.py \
         --data_dir=${DATA_ROOT}/ \
-        --dataset=wt103 \
+        --dataset=doupo \
         --tgt_len=${TGT_LEN} \
         --per_host_train_bsz=${BSZ} \
         --per_host_valid_bsz=${BSZ} \
@@ -39,9 +41,9 @@ if [[ $1 == 'train_data' ]]; then
         --use_tpu=False \
         ${@:2}
 elif [[ $1 == 'test_data' ]]; then
-    python data_utils.py \
+    python data_utils_chinese.py \
         --data_dir=${DATA_ROOT}/ \
-        --dataset=enwik8 \
+        --dataset=doupo \
         --tgt_len=${TEST_TGT_LEN} \
         --per_host_test_bsz=${TEST_BSZ} \
         --num_passes=1 \
@@ -53,7 +55,7 @@ elif [[ $1 == 'train' ]]; then
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
-        --model_dir=EXP-wt103 \
+        --model_dir=EXP-doupo \
         --div_val=${DIV_VAL} \
         --untie_r=True \
         --proj_share_all_but_first=True \
@@ -65,7 +67,7 @@ elif [[ $1 == 'train' ]]; then
         --d_inner=${D_INNER} \
         --dropout=0.1 \
         --dropatt=0.0 \
-        --learning_rate=0.00025 \
+        --learning_rate=0.00010 \
         --warmup_steps=0 \
         --train_steps=400000 \
         --tgt_len=${TGT_LEN} \
