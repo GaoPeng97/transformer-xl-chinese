@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import os
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '2,3,4,5,6,7,8,9'
+os.environ['CUDA_VISIBLE_DEVICES'] = '4,5,6,7,8,9'
 import math
 import time
 
@@ -327,7 +327,7 @@ def train(n_token, cutoffs, ps_device):
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         sess.run(tf.global_variables_initializer())
         #todo 放在 此处是因为不用重复的创建trainer目录能显示变量
-        train_writer = tf.summary.FileWriter("../data/doupo/log",
+        train_writer = tf.summary.FileWriter("../data/doupo/log2",
                                              sess.graph)
 
         if FLAGS.warm_start_path is not None:

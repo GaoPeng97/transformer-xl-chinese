@@ -61,7 +61,6 @@ class Corpus(object):
 
         self.cutoffs = []
 
-
     def convert_to_tfrecords(self, split, save_dir, bsz, tgt_len,
                              num_core_per_host, **kwargs):
         FLAGS = kwargs.get('FLAGS')
@@ -182,7 +181,6 @@ def create_ordered_tfrecords(save_dir, basename, data, batch_size, tgt_len,
     batched_data = batchify(data, batch_size, num_passes)
 
     num_batch = 0
-    # for t in range(0, batched_data.shape[1] - tgt_len - 1, tgt_len):
     for t in range(0, batched_data.shape[1] - 1, tgt_len):
         cur_tgt_len = min(batched_data.shape[1] - 1 - t, tgt_len)
         # drop the remainder if use tpu

@@ -67,7 +67,7 @@ elif [[ $1 == 'train' ]]; then
         --d_inner=${D_INNER} \
         --dropout=0.1 \
         --dropatt=0.0 \
-        --learning_rate=0.00010 \
+        --learning_rate=0.00005 \
         --warmup_steps=0 \
         --train_steps=400000 \
         --tgt_len=${TGT_LEN} \
