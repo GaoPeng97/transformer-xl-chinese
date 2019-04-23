@@ -7,7 +7,7 @@ import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '4,5,6,7,8,9'
 import math
 import time
-
+from vocabulary import Vocab
 from absl import flags
 import absl.logging as _logging  # pylint: disable=unused-import
 
@@ -158,7 +158,7 @@ def get_model_fn(n_token, cutoffs):
         if FLAGS.proj_share_all_but_first:
             for i in range(1, len(tie_projs)):
                 tie_projs[i] = True
-
+        # todo  明确loss含义
         loss, new_mems = model.transformer(
             dec_inp=inp,
             target=tgt,
@@ -326,9 +326,9 @@ def train(n_token, cutoffs, ps_device):
 
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         sess.run(tf.global_variables_initializer())
-        #todo 放在 此处是因为不用重复的创建trainer目录能显示变量
-        train_writer = tf.summary.FileWriter("../data/doupo/log2",
-                                             sess.graph)
+
+        # todo 放在 此处是因为不用重复的创建trainer目录能显示变量
+        train_writer = tf.summary.FileWriter("../data/doupo/logtest", sess.graph)
 
         if FLAGS.warm_start_path is not None:
             tf.logging.info("warm start from {}".format(FLAGS.warm_start_path))
@@ -359,7 +359,7 @@ def train(n_token, cutoffs, ps_device):
                 train_writer.add_summary(summary, curr_step)
 
             if curr_step > 0 and curr_step % FLAGS.save_steps == 0:
-                save_path = os.path.join(FLAGS.model_dir, "model.ckpt")
+                save_path = os.path.join(FLAGS.model_dir, "model-{}.ckpt".format(curr_loss))
                 saver.save(sess, save_path)
                 tf.logging.info("Model saved in path: {}".format(save_path))
 
@@ -481,7 +481,202 @@ def main(unused_argv):
     if FLAGS.do_train:
         train(n_token, cutoffs, "/gpu:0")
     if FLAGS.do_eval:
-        evaluate(n_token, cutoffs, "/gpu:0")
+        # evaluate(n_token, cutoffs, "/gpu:0")
+        inference(n_token, cutoffs, "/gpu:0")
+
+
+# new added by pgao
+def inference(n_token, cutoffs, ps_device):
+    # Get input function and model function
+
+    eval_input_fn, eval_record_info = data_utils.get_input_fn(
+        record_info_dir=FLAGS.record_info_dir,
+        split=FLAGS.eval_split,
+        per_host_bsz=FLAGS.eval_batch_size,
+        tgt_len=FLAGS.tgt_len,
+        num_core_per_host=FLAGS.num_core_per_host,
+        num_hosts=1,
+        use_tpu=False)
+
+    num_batch = eval_record_info["num_batch"]
+    if FLAGS.max_eval_batch > 0:
+        num_batch = FLAGS.max_eval_batch
+    tf.logging.info("num of batches {}".format(num_batch))
+
+    # Create computational graph
+    # 这里得到一个 tensorflow 的 dataset
+    eval_set = eval_input_fn({
+        "batch_size": FLAGS.eval_batch_size,
+        "data_dir": FLAGS.data_dir})
+
+    input_feed, label_feed = eval_set.make_one_shot_iterator().get_next()
+
+    inputs = tf.split(input_feed, FLAGS.num_core_per_host, 0)
+    labels = tf.split(label_feed, FLAGS.num_core_per_host, 0)
+
+    per_core_bsz = FLAGS.eval_batch_size // FLAGS.num_core_per_host
+    tower_mems, tower_losses, tower_new_mems = [], [], []
+    tower_output = []
+
+    for i in range(FLAGS.num_core_per_host):
+        with tf.device(assign_to_gpu(i, ps_device)), \
+             tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
+            mems_i = [tf.placeholder(tf.float32,
+                                     [FLAGS.mem_len, per_core_bsz, FLAGS.d_model])
+                      for _ in range(FLAGS.n_layer)]
+
+            loss_i, new_mems_i, output_i = single_core_graph_for_inference(
+                n_token=n_token,
+                cutoffs=cutoffs,
+                is_training=False,
+                inp=inputs[i],
+                tgt=labels[i],
+                mems=mems_i)
+
+            tower_mems.append(mems_i)
+            tower_losses.append(loss_i)
+            tower_new_mems.append(new_mems_i)
+            tower_output.append(output_i)
+
+    # sum losses across towers
+    if len(tower_losses) > 1:
+        loss = tf.add_n(tower_losses) / len(tower_losses)
+    else:
+        loss = tower_losses[0]
+
+    # Evaluation loop
+    tower_mems_np = [
+        [np.zeros([FLAGS.mem_len, per_core_bsz, FLAGS.d_model], dtype=np.float32)
+         for layer in range(FLAGS.n_layer)]
+        for core in range(FLAGS.num_core_per_host)
+    ]
+
+    saver = tf.train.Saver()
+
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+        sess.run(tf.global_variables_initializer())
+
+        if FLAGS.eval_ckpt_path is None:
+            eval_ckpt_path = tf.train.latest_checkpoint(FLAGS.model_dir)
+        else:
+            eval_ckpt_path = FLAGS.eval_ckpt_path
+        tf.logging.info("Evaluate {}".format(eval_ckpt_path))
+        saver.restore(sess, eval_ckpt_path)
+
+        fetches = [loss, tower_new_mems, tf.size(label_feed), tower_output]
+
+        format_str = "  >> processing batch {{:{0}d}}/{{:{0}d}} ..".format(
+            len(str(num_batch)))
+
+        total_loss, total_cnt = 0, 0
+        for step in range(num_batch):
+            if step % (num_batch // 10) == 0:
+                tf.logging.info(format_str.format(step, num_batch))
+
+            feed_dict = {}
+            for i in range(FLAGS.num_core_per_host):
+                for m, m_np in zip(tower_mems[i], tower_mems_np[i]):
+                    feed_dict[m] = m_np
+
+            fetched = sess.run(fetches, feed_dict=feed_dict)
+
+            loss_np, tower_mems_np, cnt_np = fetched[:3]
+            total_loss += loss_np * cnt_np
+            total_cnt += cnt_np
+            ##############################################
+            tmp_Vocab = Vocab()
+            tmp_Vocab.count_file("../data/doupo/train.txt", add_eos=False)
+            tmp_Vocab.build_vocab()
+            # tokenlized_input = tmp_Vocab.encode_file("../data/doupo/sample.txt", ordered=True)
+
+            output = fetched[3]
+            print(np.array(output).shape)
+            for i in range(64):
+                tmp_list = output[0][i][0]
+                tmp_list = tmp_list.tolist()
+                index = tmp_list.index(max(tmp_list))
+                print(tmp_Vocab.get_sym(index))
+
+            print('===================================')
+
+        avg_loss = total_loss / total_cnt
+        tf.logging.info("| loss {:.2f} | pplx {:>7.2f}, bpc {:>7.4f}".format(
+            avg_loss, math.exp(avg_loss), avg_loss / math.log(2)))
+
+
+def single_core_graph_for_inference(n_token, cutoffs, is_training, inp, tgt, mems):
+    model_fn = get_model_fn_for_inference(
+        n_token=n_token,
+        cutoffs=cutoffs)
+
+    model_ret = model_fn(
+        inp=inp,
+        tgt=tgt,
+        mems=mems,
+        is_training=is_training)
+
+    return model_ret
+
+
+def get_model_fn_for_inference(n_token, cutoffs):
+    def model_fn(inp, tgt, mems, is_training):
+        inp = tf.transpose(inp, [1, 0])
+        tgt = tf.transpose(tgt, [1, 0])
+
+        if FLAGS.init == "uniform":
+            initializer = tf.initializers.random_uniform(
+                minval=-FLAGS.init_range,
+                maxval=FLAGS.init_range,
+                seed=None)
+        elif FLAGS.init == "normal":
+            initializer = tf.initializers.random_normal(
+                stddev=FLAGS.init_std,
+                seed=None)
+            proj_initializer = tf.initializers.random_normal(
+                stddev=FLAGS.proj_init_std,
+                seed=None)
+
+        tie_projs = [False for _ in range(len(cutoffs) + 1)]
+        if FLAGS.proj_share_all_but_first:
+            for i in range(1, len(tie_projs)):
+                tie_projs[i] = True
+        # todo  明确loss含义
+        loss, new_mems, output = model.transformer_inference(
+            dec_inp=inp,
+            target=tgt,
+            mems=mems,
+            n_token=n_token,
+            n_layer=FLAGS.n_layer,
+            d_model=FLAGS.d_model,
+            d_embed=FLAGS.d_embed,
+            n_head=FLAGS.n_head,
+            d_head=FLAGS.d_head,
+            d_inner=FLAGS.d_inner,
+            dropout=FLAGS.dropout,
+            dropatt=FLAGS.dropatt,
+            initializer=initializer,
+            proj_initializer=proj_initializer,
+            is_training=is_training,
+            mem_len=FLAGS.mem_len,
+            cutoffs=cutoffs,
+            div_val=FLAGS.div_val,
+            tie_projs=tie_projs,
+            input_perms=None,
+            target_perms=None,
+            head_target=None,
+            same_length=FLAGS.same_length,
+            clamp_len=FLAGS.clamp_len,
+            use_tpu=False,
+            untie_r=FLAGS.untie_r,
+            proj_same_dim=FLAGS.proj_same_dim)
+
+        # number of parameters
+        num_params = sum([np.prod(v.shape) for v in tf.trainable_variables()])
+        tf.logging.info('#params: {}'.format(num_params))
+
+        return loss, new_mems, output
+
+    return model_fn
 
 
 if __name__ == "__main__":

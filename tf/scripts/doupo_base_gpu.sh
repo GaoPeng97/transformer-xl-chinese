@@ -15,8 +15,8 @@ D_HEAD=41
 D_INNER=2100
 
 # Training
-TGT_LEN=50
-MEM_LEN=50
+TGT_LEN=150
+MEM_LEN=150
 
 BSZ=64
 NUM_CORE=2
@@ -55,7 +55,7 @@ elif [[ $1 == 'train' ]]; then
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
-        --model_dir=EXP-doupo \
+        --model_dir=EXP-doupo3 \
         --div_val=${DIV_VAL} \
         --untie_r=True \
         --proj_share_all_but_first=True \
@@ -105,6 +105,35 @@ elif [[ $1 == 'eval' ]]; then
         --do_eval=True \
         --eval_split=test \
         ${@:2}
+elif [[ $1 == 'inference' ]]; then
+    echo 'Run inference...'
+    python train_gpu.py \
+        --data_dir=${DATA_ROOT}/tfrecords \
+        --record_info_dir=${DATA_ROOT}/tfrecords/ \
+        --corpus_info_path=${DATA_ROOT}/corpus-info.json \
+        --model_dir=EXP-doupo \
+        --div_val=${DIV_VAL} \
+        --untie_r=True \
+        --proj_share_all_but_first=True \
+        --n_layer=${N_LAYER} \
+        --d_model=${D_MODEL} \
+        --d_embed=${D_EMBED} \
+        --n_head=${N_HEAD} \
+        --d_head=${D_HEAD} \
+        --d_inner=${D_INNER} \
+        --dropout=0.0 \
+        --dropatt=0.0 \
+        --tgt_len=${TEST_TGT_LEN} \
+        --mem_len=${TEST_MEM_LEN} \
+        --clamp_len=${TEST_CLAMP_LEN} \
+        --same_length=True \
+        --eval_batch_size=${TEST_BSZ} \
+        --num_core_per_host=${TEST_NUM_CORE} \
+        --do_train=False \
+        --do_eval=True \
+        --eval_split=test \
+        ${@:2}
+
 else
     echo 'unknown argment 1'
 fi

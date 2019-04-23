@@ -338,6 +338,7 @@ def get_input_fn(record_info_dir, split, per_host_bsz, tgt_len,
     record_info = load_record_info(record_info_dir, split, per_host_bsz, tgt_len,
                                    num_core_per_host, use_tpu=use_tpu)
 
+    # 读取一些batch size的信息冗余
     file_names = record_info["filenames"]
     bin_sizes = record_info["bin_sizes"]
     num_batch = record_info["num_batch"]
