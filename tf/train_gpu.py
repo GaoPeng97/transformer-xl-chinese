@@ -328,7 +328,7 @@ def train(n_token, cutoffs, ps_device):
         sess.run(tf.global_variables_initializer())
 
         # todo 放在 此处是因为不用重复的创建trainer目录能显示变量
-        train_writer = tf.summary.FileWriter("../data/doupo/logtest", sess.graph)
+        train_writer = tf.summary.FileWriter("./EXP-doupo4/log", sess.graph)
 
         if FLAGS.warm_start_path is not None:
             tf.logging.info("warm start from {}".format(FLAGS.warm_start_path))
@@ -487,92 +487,23 @@ def main(unused_argv):
 
 # new added by pgao
 def inference(n_token, cutoffs, ps_device):
-    # Get input function and model function
-    eval_input_fn, eval_record_info = data_utils.get_input_fn(
-        record_info_dir=FLAGS.record_info_dir,
-        split=FLAGS.eval_split,
-        per_host_bsz=FLAGS.eval_batch_size,
-        tgt_len=FLAGS.tgt_len,
-        num_core_per_host=FLAGS.num_core_per_host,
-        num_hosts=1,
-        use_tpu=False)
-
-    num_batch = eval_record_info["num_batch"]
-    if FLAGS.max_eval_batch > 0:
-        num_batch = FLAGS.max_eval_batch
-    tf.logging.info("num of batches {}".format(num_batch))
-
-    # # Create computational graph
-    # # 这里得到一个 tensorflow 的 dataset
-    # eval_set = eval_input_fn({
-    #     "batch_size": FLAGS.eval_batch_size,
-    #     "data_dir": FLAGS.data_dir})
-    #
-    # input_feed, label_feed = eval_set.make_one_shot_iterator().get_next()
-    # # 截止这里得到一个dataset 并生成迭代器
-
-    #########################################################################
-    def parser(record):
-        # preprocess "inp_perm" and "tgt_perm"
-        record_spec = {
-            "inputs": tf.VarLenFeature(tf.int64),
-        }
-
-        example = tf.parse_single_example(
-            serialized=record,
-            features=record_spec)
-
-        for key in list(example.keys()):
-            val = example[key]
-            if tf.keras.backend.is_sparse(val):
-                val = tf.sparse.to_dense(val)
-            if val.dtype == tf.int64:
-                val = tf.to_int32(val)
-            example[key] = val
-
-        return example["inputs"]
-
-    def _int64_feature(values):
-        return tf.train.Feature(int64_list=tf.train.Int64List(value=values))
-
     input_text = "对于这威胁之话，萧炎却徽眯的眼眸望向紫衣少女二人，声音之中，略有些惊异。"
     tmp_Vocab = Vocab()
     tmp_Vocab.count_file("../data/doupo/train.txt", add_eos=False)
     tmp_Vocab.build_vocab()
-    # encoded_input = tmp_Vocab.encode_file("../data/doupo/sample.txt", ordered=True)
     encoded_input = tmp_Vocab.encode_sents(input_text, ordered=True)
 
-    feature = {
-        "inputs": _int64_feature(encoded_input)
-    }
-
-    save_path = '../data/doupo/tmp.tfrecords'
-    record_writer = tf.python_io.TFRecordWriter(save_path)
-    example = tf.train.Example(features=tf.train.Features(feature=feature))
-    record_writer.write(example.SerializeToString())
-
-    # dataset = tf.data.Dataset.from_tensor_slices([save_path])
-    # dataset = tf.data.TFRecordDataset(dataset)
-    # dataset = dataset.map(parser)
+    test_list = tf.placeholder(tf.int64, shape=[1, None])
+    dataset = tf.data.Dataset.from_tensors(test_list)
     # dataset = dataset.batch(1, drop_remainder=True)
 
-    dataset = tf.data.Dataset.from_tensors([[1]])
-    input_feed = dataset.make_one_shot_iterator().get_next()
+    iterator = dataset.make_initializable_iterator()
+    input_feed = iterator.get_next()
     label_feed = input_feed
-    print('************************ in get next ****************************************')
-
-    # with tf.Session() as sess:
-    #     for i in range(100):
-    #         value = sess.run(input_feed)
-    #         print(value)
-    #         print('========================== end ===============================')
-
-    ##############################################################
 
     inputs = tf.split(input_feed, FLAGS.num_core_per_host, 0)
     labels = tf.split(label_feed, FLAGS.num_core_per_host, 0)
 
-    # per_core_bsz = FLAGS.eval_batch_size // FLAGS.num_core_per_host
     per_core_bsz = 1
     tower_mems, tower_losses, tower_new_mems = [], [], []
     tower_output = []
@@ -624,32 +555,20 @@ def inference(n_token, cutoffs, ps_device):
 
         fetches = [loss, tower_new_mems, tf.size(label_feed), tower_output]
 
-        format_str = "  >> processing batch {{:{0}d}}/{{:{0}d}} ..".format(
-            len(str(num_batch)))
         num_batch = 1
         total_loss, total_cnt = 0, 0
         for step in range(num_batch):
-            print('***************** get in batch **********************')
-            # if step % (num_batch // 10) == 0:
-            #     tf.logging.info(format_str.format(step, num_batch))
-
             feed_dict = {}
             for i in range(FLAGS.num_core_per_host):
                 for m, m_np in zip(tower_mems[i], tower_mems_np[i]):
                     feed_dict[m] = m_np
 
+            sess.run(iterator.initializer, feed_dict={test_list: [encoded_input]})
             fetched = sess.run(fetches, feed_dict=feed_dict)
-
-            print('***************** out sess run **********************')
 
             loss_np, tower_mems_np, cnt_np = fetched[:3]
             total_loss += loss_np * cnt_np
             total_cnt += cnt_np
-            ##############################################
-            tmp_Vocab = Vocab()
-            tmp_Vocab.count_file("../data/doupo/train.txt", add_eos=False)
-            tmp_Vocab.build_vocab()
-            # tokenlized_input = tmp_Vocab.encode_file("../data/doupo/sample.txt", ordered=True)
 
             output = fetched[3]
             print(np.array(output).shape)
@@ -657,14 +576,8 @@ def inference(n_token, cutoffs, ps_device):
                 tmp_list = output[0][i][0]
                 tmp_list = tmp_list.tolist()
                 index = tmp_list.index(max(tmp_list))
-                print(tmp_Vocab.get_sym(1))
+                print(tmp_Vocab.get_sym(44))
                 print(tmp_Vocab.get_sym(index))
-
-            print('===================================')
-
-        avg_loss = total_loss / total_cnt
-        tf.logging.info("| loss {:.2f} | pplx {:>7.2f}, bpc {:>7.4f}".format(
-            avg_loss, math.exp(avg_loss), avg_loss / math.log(2)))
 
 
 def single_core_graph_for_inference(n_token, cutoffs, is_training, inp, tgt, mems):
