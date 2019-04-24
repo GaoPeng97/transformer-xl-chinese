@@ -488,7 +488,6 @@ def main(unused_argv):
 # new added by pgao
 def inference(n_token, cutoffs, ps_device):
     # Get input function and model function
-
     eval_input_fn, eval_record_info = data_utils.get_input_fn(
         record_info_dir=FLAGS.record_info_dir,
         split=FLAGS.eval_split,
@@ -503,18 +502,78 @@ def inference(n_token, cutoffs, ps_device):
         num_batch = FLAGS.max_eval_batch
     tf.logging.info("num of batches {}".format(num_batch))
 
-    # Create computational graph
-    # 这里得到一个 tensorflow 的 dataset
-    eval_set = eval_input_fn({
-        "batch_size": FLAGS.eval_batch_size,
-        "data_dir": FLAGS.data_dir})
+    # # Create computational graph
+    # # 这里得到一个 tensorflow 的 dataset
+    # eval_set = eval_input_fn({
+    #     "batch_size": FLAGS.eval_batch_size,
+    #     "data_dir": FLAGS.data_dir})
+    #
+    # input_feed, label_feed = eval_set.make_one_shot_iterator().get_next()
+    # # 截止这里得到一个dataset 并生成迭代器
 
-    input_feed, label_feed = eval_set.make_one_shot_iterator().get_next()
+    #########################################################################
+    def parser(record):
+        # preprocess "inp_perm" and "tgt_perm"
+        record_spec = {
+            "inputs": tf.VarLenFeature(tf.int64),
+        }
+
+        example = tf.parse_single_example(
+            serialized=record,
+            features=record_spec)
+
+        for key in list(example.keys()):
+            val = example[key]
+            if tf.keras.backend.is_sparse(val):
+                val = tf.sparse.to_dense(val)
+            if val.dtype == tf.int64:
+                val = tf.to_int32(val)
+            example[key] = val
+
+        return example["inputs"]
+
+    def _int64_feature(values):
+        return tf.train.Feature(int64_list=tf.train.Int64List(value=values))
+
+    input_text = "对于这威胁之话，萧炎却徽眯的眼眸望向紫衣少女二人，声音之中，略有些惊异。"
+    tmp_Vocab = Vocab()
+    tmp_Vocab.count_file("../data/doupo/train.txt", add_eos=False)
+    tmp_Vocab.build_vocab()
+    # encoded_input = tmp_Vocab.encode_file("../data/doupo/sample.txt", ordered=True)
+    encoded_input = tmp_Vocab.encode_sents(input_text, ordered=True)
+
+    feature = {
+        "inputs": _int64_feature(encoded_input)
+    }
+
+    save_path = '../data/doupo/tmp.tfrecords'
+    record_writer = tf.python_io.TFRecordWriter(save_path)
+    example = tf.train.Example(features=tf.train.Features(feature=feature))
+    record_writer.write(example.SerializeToString())
+
+    # dataset = tf.data.Dataset.from_tensor_slices([save_path])
+    # dataset = tf.data.TFRecordDataset(dataset)
+    # dataset = dataset.map(parser)
+    # dataset = dataset.batch(1, drop_remainder=True)
+
+    dataset = tf.data.Dataset.from_tensors([[1]])
+    input_feed = dataset.make_one_shot_iterator().get_next()
+    label_feed = input_feed
+    print('************************ in get next ****************************************')
+
+    # with tf.Session() as sess:
+    #     for i in range(100):
+    #         value = sess.run(input_feed)
+    #         print(value)
+    #         print('========================== end ===============================')
+
+    ##############################################################
 
     inputs = tf.split(input_feed, FLAGS.num_core_per_host, 0)
     labels = tf.split(label_feed, FLAGS.num_core_per_host, 0)
 
-    per_core_bsz = FLAGS.eval_batch_size // FLAGS.num_core_per_host
+    # per_core_bsz = FLAGS.eval_batch_size // FLAGS.num_core_per_host
+    per_core_bsz = 1
     tower_mems, tower_losses, tower_new_mems = [], [], []
     tower_output = []
 
@@ -567,11 +626,12 @@ def inference(n_token, cutoffs, ps_device):
 
         format_str = "  >> processing batch {{:{0}d}}/{{:{0}d}} ..".format(
             len(str(num_batch)))
-
+        num_batch = 1
         total_loss, total_cnt = 0, 0
         for step in range(num_batch):
-            if step % (num_batch // 10) == 0:
-                tf.logging.info(format_str.format(step, num_batch))
+            print('***************** get in batch **********************')
+            # if step % (num_batch // 10) == 0:
+            #     tf.logging.info(format_str.format(step, num_batch))
 
             feed_dict = {}
             for i in range(FLAGS.num_core_per_host):
@@ -579,6 +639,8 @@ def inference(n_token, cutoffs, ps_device):
                     feed_dict[m] = m_np
 
             fetched = sess.run(fetches, feed_dict=feed_dict)
+
+            print('***************** out sess run **********************')
 
             loss_np, tower_mems_np, cnt_np = fetched[:3]
             total_loss += loss_np * cnt_np
@@ -591,10 +653,11 @@ def inference(n_token, cutoffs, ps_device):
 
             output = fetched[3]
             print(np.array(output).shape)
-            for i in range(64):
+            for i in range(1):
                 tmp_list = output[0][i][0]
                 tmp_list = tmp_list.tolist()
                 index = tmp_list.index(max(tmp_list))
+                print(tmp_Vocab.get_sym(1))
                 print(tmp_Vocab.get_sym(index))
 
             print('===================================')

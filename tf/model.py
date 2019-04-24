@@ -525,7 +525,6 @@ def transformer(dec_inp, target, mems, n_token, n_layer, d_model, d_embed,
 
         output = tf.layers.dropout(output, dropout, training=is_training)
 
-
         logsoftmax_fn = (mul_adaptive_logsoftmax if use_tpu else
                          mask_adaptive_logsoftmax)
 

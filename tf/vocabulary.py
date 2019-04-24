@@ -27,15 +27,7 @@ class Vocab(object):
 
     def tokenize(self, line, add_eos=False, add_double_eos=False):
         line = line.strip()
-        # convert to lower case
-        if self.lower_case:
-            line = line.lower()
-
-        # empty delimiter '' will evaluate False
-        if self.delimiter == '':
-            symbols = line
-        else:
-            symbols = line.split(self.delimiter)
+        symbols = list(line)
 
         if add_double_eos:  # lm1b
             # 确保 在symbol list 中能找
