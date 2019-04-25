@@ -500,7 +500,7 @@ def inference(n_token, cutoffs, ps_device):
     #              "并未令得萧炎如何的记挂，目光在这院落中一扫，眉头却是微微一皱，这占地面积不小的院落中，有着不少蛇人的身影，" \
     #              "而且看这些家伙的气息，明显都是蛇人族中的顶尖好手，而且那日被他救过一次的月媚也在其中。 这些蛇人族强者望向萧炎的眼神中皆是充斥着些许好奇，显然先前他一拳将墨巴斯震"
 
-    input_text = "对于这威胁之"
+    input_text = "萧炎却是，威胁之话"
     tmp_Vocab = Vocab()
     tmp_Vocab.count_file("../data/test/train.txt", add_eos=False)
     tmp_Vocab.build_vocab()
@@ -513,10 +513,8 @@ def inference(n_token, cutoffs, ps_device):
 
     iterator = dataset.make_initializable_iterator()
     input_feed = iterator.get_next()
-    label_feed = input_feed
 
     inputs = tf.split(input_feed, FLAGS.num_core_per_host, 0)
-    labels = tf.split(label_feed, FLAGS.num_core_per_host, 0)
 
     per_core_bsz = 1
     tower_mems, tower_losses, tower_new_mems = [], [], []
@@ -529,24 +527,16 @@ def inference(n_token, cutoffs, ps_device):
                                      [FLAGS.mem_len, per_core_bsz, FLAGS.d_model])
                       for _ in range(FLAGS.n_layer)]
 
-            loss_i, new_mems_i, output_i = single_core_graph_for_inference(
+            new_mems_i, output_i = single_core_graph_for_inference(
                 n_token=n_token,
                 cutoffs=cutoffs,
                 is_training=False,
                 inp=inputs[i],
-                tgt=labels[i],
                 mems=mems_i)
 
             tower_mems.append(mems_i)
-            tower_losses.append(loss_i)
             tower_new_mems.append(new_mems_i)
             tower_output.append(output_i)
-
-    # sum losses across towers
-    if len(tower_losses) > 1:
-        loss = tf.add_n(tower_losses) / len(tower_losses)
-    else:
-        loss = tower_losses[0]
 
     # Evaluation loop
     tower_mems_np = [
@@ -567,7 +557,7 @@ def inference(n_token, cutoffs, ps_device):
 
         saver.restore(sess, eval_ckpt_path)
 
-        fetches = [tower_new_mems, tower_output, tf.size(label_feed)]
+        fetches = [tower_new_mems, tower_output]
 
         num_batch = 1
         output_len = 10
@@ -580,7 +570,7 @@ def inference(n_token, cutoffs, ps_device):
             sess.run(iterator.initializer, feed_dict={test_list: [encoded_input]})
             fetched = sess.run(fetches, feed_dict=feed_dict)
 
-            tower_mems_np, output, cnt_np = fetched[:3]
+            tower_mems_np, output = fetched[:2]
             print(np.array(output).shape)
 
             print(encoded_input)
@@ -589,19 +579,17 @@ def inference(n_token, cutoffs, ps_device):
                 tmp_list = output[0][i][0]
                 tmp_list = tmp_list.tolist()
                 index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[:1]
-                # print(tmp_list)
                 index = random.sample(index_list, 1)[0]
                 print("{}{}".format(tmp_Vocab.get_sym(encoded_input[i]), tmp_Vocab.get_sym(index)))
 
 
-def single_core_graph_for_inference(n_token, cutoffs, is_training, inp, tgt, mems):
+def single_core_graph_for_inference(n_token, cutoffs, is_training, inp,  mems):
     model_fn = get_model_fn_for_inference(
         n_token=n_token,
         cutoffs=cutoffs)
 
     model_ret = model_fn(
         inp=inp,
-        tgt=tgt,
         mems=mems,
         is_training=is_training)
 
@@ -609,9 +597,8 @@ def single_core_graph_for_inference(n_token, cutoffs, is_training, inp, tgt, mem
 
 
 def get_model_fn_for_inference(n_token, cutoffs):
-    def model_fn(inp, tgt, mems, is_training):
+    def model_fn(inp, mems, is_training):
         inp = tf.transpose(inp, [1, 0])
-        tgt = tf.transpose(tgt, [1, 0])
 
         if FLAGS.init == "uniform":
             initializer = tf.initializers.random_uniform(
@@ -630,9 +617,8 @@ def get_model_fn_for_inference(n_token, cutoffs):
         if FLAGS.proj_share_all_but_first:
             for i in range(1, len(tie_projs)):
                 tie_projs[i] = True
-        loss, new_mems, output = model.transformer_inference(
+        new_mems, output = model.transformer_inference(
             dec_inp=inp,
-            target=tgt,
             mems=mems,
             n_token=n_token,
             n_layer=FLAGS.n_layer,
@@ -663,7 +649,7 @@ def get_model_fn_for_inference(n_token, cutoffs):
         num_params = sum([np.prod(v.shape) for v in tf.trainable_variables()])
         tf.logging.info('#params: {}'.format(num_params))
 
-        return loss, new_mems, output
+        return new_mems, output
 
     return model_fn
 

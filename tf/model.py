@@ -547,7 +547,7 @@ def transformer(dec_inp, target, mems, n_token, n_layer, d_model, d_embed,
         return loss, new_mems
 
 
-def transformer_inference(dec_inp, target, mems, n_token, n_layer, d_model, d_embed,
+def transformer_inference(dec_inp, mems, n_token, n_layer, d_model, d_embed,
                 n_head, d_head, d_inner, dropout, dropatt,
                 initializer, is_training, proj_initializer=None,
                 mem_len=None, cutoffs=[], div_val=1, tie_projs=[],
@@ -641,26 +641,9 @@ def transformer_inference(dec_inp, target, mems, n_token, n_layer, d_model, d_em
         output = tf.layers.dropout(output, dropout, training=is_training)
         idx_output = compute_output(output, n_token, cutoffs, shared_params)
 
-        logsoftmax_fn = (mul_adaptive_logsoftmax if use_tpu else
-                         mask_adaptive_logsoftmax)
+        loss = 0
 
-        loss = logsoftmax_fn(
-            hidden=output,
-            target=target,
-            n_token=n_token,
-            d_embed=d_embed,
-            d_proj=d_model,
-            cutoffs=cutoffs,
-            params=shared_params,
-            tie_projs=tie_projs,
-            initializer=initializer,
-            proj_initializer=proj_initializer,
-            div_val=div_val,
-            perms=target_perms,
-            head_target=head_target,
-            proj_same_dim=proj_same_dim)
-
-        return loss, new_mems, idx_output
+        return new_mems, idx_output
 
 
 def compute_output(hidden, n_token, cutoffs, params, scope='adaptive_softmax'):
