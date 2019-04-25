@@ -23,7 +23,7 @@ class Vocab(object):
         self.delimiter = delimiter
         self.vocab_file = vocab_file
         self.idx2sym = []
-        self.sym2idx = OrderedDict()
+        self.sym2idx = OrderedDict()           # todo  确定这里有没有问题
 
     def tokenize(self, line, add_eos=False, add_double_eos=False):
         line = line.strip()
@@ -34,7 +34,6 @@ class Vocab(object):
             self.add_symbol('<S>')
             return ['<S>'] + symbols + ['<S>']
         elif add_eos:
-            self.add_symbol('<eos>')
             return symbols + ['<eos>']
         else:
             return symbols
@@ -49,7 +48,7 @@ class Vocab(object):
             for idx, line in enumerate(f):
                 if verbose and idx > 0 and idx % 500000 == 0:
                     print('  line {}'.format(idx))
-                symbols = self.tokenize(line, add_eos=add_eos)
+                symbols = self.tokenize(line, add_eos=True)
                 self.counter.update(symbols)
                 sents.append(symbols)
 
@@ -86,18 +85,23 @@ class Vocab(object):
             print('building vocab with min_freq={}, max_size={}'.format(
                 self.min_freq, self.max_size))
 
-            for sym in self.special:
-                self.add_special(sym)
+            self.add_special("<eos>")
 
-            for sym, cnt in self.counter.most_common(self.max_size):
-                if cnt < self.min_freq: break
+            # todo 这里巨坑!!!!!
+            # for sym, cnt in self.counter.most_common(self.max_size):
+            #     if cnt < self.min_freq:
+            #         break
+            tmp = sorted(self.counter.items(), key=lambda item:item[0])
+            for sym, cnt in tmp:
+                if cnt < self.min_freq:
+                    break
                 self.add_symbol(sym)
 
             print('final vocab size {} from {} unique tokens'.format(
                 len(self), len(self.counter)))
 
     # 主要在于convert_to_nparray, 其实也就是将vocab变成idx
-    def encode_file(self, path, ordered=False, verbose=False, add_eos=True,
+    def encode_file(self, path, ordered=False, verbose=False,
                     add_double_eos=False):
         if verbose: print('encoding file {} ...'.format(path))
         assert exists(path)
@@ -106,8 +110,7 @@ class Vocab(object):
             for idx, line in enumerate(f):
                 if verbose and idx > 0 and idx % 500000 == 0:
                     print('  line {}'.format(idx))
-                symbols = self.tokenize(line, add_eos=add_eos,
-                                        add_double_eos=add_double_eos)
+                symbols = self.tokenize(line, add_eos=True, add_double_eos=add_double_eos)
 
                 encoded.append(self.convert_to_nparray(symbols))
 
@@ -123,12 +126,6 @@ class Vocab(object):
 
         symbols = self.tokenize(sents)
         encoded.append(self.convert_to_nparray(symbols))
-
-        # for idx, symbols in enumerate(sents):
-        #     print(symbols)
-        #     if verbose and idx > 0 and idx % 500000 == 0:
-        #         print('  line {}'.format(idx))
-        #     encoded.append(self.convert_to_nparray(symbols))
 
         if ordered:
             encoded = np.concatenate(encoded)
@@ -147,7 +144,7 @@ class Vocab(object):
             self.sym2idx[sym] = len(self.idx2sym) - 1
 
     def get_sym(self, idx):
-        assert 0 <= idx < len(self), 'Index {} out of range'.format(idx)
+        assert 0 <= idx < len(self.idx2sym), 'Index {} out of range'.format(idx)
         return self.idx2sym[idx]
 
     def get_idx(self, sym):

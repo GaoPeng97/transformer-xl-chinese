@@ -3,8 +3,8 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+# os.environ['CUDA_VISIBLE_DEVICES'] = '8,9'
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '4,5,6,7,8,9'
 import math
 import time
 from vocabulary import Vocab
@@ -12,8 +12,10 @@ from absl import flags
 import absl.logging as _logging  # pylint: disable=unused-import
 
 import tensorflow as tf
+
 import model
 import data_utils
+import random
 
 from gpu_utils import assign_to_gpu, average_grads_and_vars
 
@@ -224,6 +226,8 @@ def single_core_graph(n_token, cutoffs, is_training, inp, tgt, mems):
 
 
 def train(n_token, cutoffs, ps_device):
+    os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
+
     # Get input function and model function
     train_input_fn, train_record_info = data_utils.get_input_fn(
         record_info_dir=FLAGS.record_info_dir,
@@ -245,6 +249,8 @@ def train(n_token, cutoffs, ps_device):
 
     inputs = tf.split(input_feed, FLAGS.num_core_per_host, 0)
     labels = tf.split(label_feed, FLAGS.num_core_per_host, 0)
+
+    print_op = tf.print(inputs)
 
     per_core_bsz = FLAGS.train_batch_size // FLAGS.num_core_per_host
 
@@ -328,7 +334,7 @@ def train(n_token, cutoffs, ps_device):
         sess.run(tf.global_variables_initializer())
 
         # todo 放在 此处是因为不用重复的创建trainer目录能显示变量
-        train_writer = tf.summary.FileWriter("./EXP-doupo4/log", sess.graph)
+        train_writer = tf.summary.FileWriter(os.path.join(FLAGS.model_dir, "lr5e4/log"), sess.graph)
 
         if FLAGS.warm_start_path is not None:
             tf.logging.info("warm start from {}".format(FLAGS.warm_start_path))
@@ -346,6 +352,7 @@ def train(n_token, cutoffs, ps_device):
             #old
             # fetched = sess.run(fetches, feed_dict=feed_dict)
 
+            # with tf.control_dependencies([print_op]):
             summary, fetched = sess.run([merged, fetches], feed_dict=feed_dict)
 
             loss_np, tower_mems_np, curr_step = fetched[:3]
@@ -359,7 +366,7 @@ def train(n_token, cutoffs, ps_device):
                 train_writer.add_summary(summary, curr_step)
 
             if curr_step > 0 and curr_step % FLAGS.save_steps == 0:
-                save_path = os.path.join(FLAGS.model_dir, "model-{}.ckpt".format(curr_loss))
+                save_path = os.path.join(FLAGS.model_dir, "lr5e4/model-{}.ckpt".format(curr_step))
                 saver.save(sess, save_path)
                 tf.logging.info("Model saved in path: {}".format(save_path))
 
@@ -487,10 +494,17 @@ def main(unused_argv):
 
 # new added by pgao
 def inference(n_token, cutoffs, ps_device):
-    input_text = "对于这威胁之话，萧炎却徽眯的眼眸望向紫衣少女二人，声音之中，略有些惊异。"
+    os.environ['CUDA_VISIBLE_DEVICES'] = '7'
+    # input_text = "被美杜莎一阵喝斥，那体型壮硕的墨巴斯却是没有丝毫的不耐，无奈的点了点头，不过他看向美杜莎的那眼神，却是充斥着颇为浓烈的爱慕与尊崇。 对着萧炎再次丢了一个阴沉的眼神，" \
+    #              "那墨巴斯方才有些不甘的退到一 旁。 见到那家伙退开，萧炎方才散去拳又之上的碧绿火焰，对于他为何会对自己如此不满，或许从他看向美杜莎的目光中便是能够知道一点端倪，不过这到" \
+    #              "并未令得萧炎如何的记挂，目光在这院落中一扫，眉头却是微微一皱，这占地面积不小的院落中，有着不少蛇人的身影，" \
+    #              "而且看这些家伙的气息，明显都是蛇人族中的顶尖好手，而且那日被他救过一次的月媚也在其中。 这些蛇人族强者望向萧炎的眼神中皆是充斥着些许好奇，显然先前他一拳将墨巴斯震"
+
+    input_text = "对于这威胁之"
     tmp_Vocab = Vocab()
-    tmp_Vocab.count_file("../data/doupo/train.txt", add_eos=False)
+    tmp_Vocab.count_file("../data/test/train.txt", add_eos=False)
     tmp_Vocab.build_vocab()
+    print(tmp_Vocab.idx2sym)
     encoded_input = tmp_Vocab.encode_sents(input_text, ordered=True)
 
     test_list = tf.placeholder(tf.int64, shape=[1, None])
@@ -550,14 +564,14 @@ def inference(n_token, cutoffs, ps_device):
             eval_ckpt_path = tf.train.latest_checkpoint(FLAGS.model_dir)
         else:
             eval_ckpt_path = FLAGS.eval_ckpt_path
-        tf.logging.info("Evaluate {}".format(eval_ckpt_path))
+
         saver.restore(sess, eval_ckpt_path)
 
-        fetches = [loss, tower_new_mems, tf.size(label_feed), tower_output]
+        fetches = [tower_new_mems, tower_output, tf.size(label_feed)]
 
         num_batch = 1
-        total_loss, total_cnt = 0, 0
-        for step in range(num_batch):
+        output_len = 10
+        for step in range(1):
             feed_dict = {}
             for i in range(FLAGS.num_core_per_host):
                 for m, m_np in zip(tower_mems[i], tower_mems_np[i]):
@@ -566,18 +580,18 @@ def inference(n_token, cutoffs, ps_device):
             sess.run(iterator.initializer, feed_dict={test_list: [encoded_input]})
             fetched = sess.run(fetches, feed_dict=feed_dict)
 
-            loss_np, tower_mems_np, cnt_np = fetched[:3]
-            total_loss += loss_np * cnt_np
-            total_cnt += cnt_np
-
-            output = fetched[3]
+            tower_mems_np, output, cnt_np = fetched[:3]
             print(np.array(output).shape)
-            for i in range(1):
+
+            print(encoded_input)
+
+            for i in range(len(encoded_input)):
                 tmp_list = output[0][i][0]
                 tmp_list = tmp_list.tolist()
-                index = tmp_list.index(max(tmp_list))
-                print(tmp_Vocab.get_sym(44))
-                print(tmp_Vocab.get_sym(index))
+                index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[:1]
+                # print(tmp_list)
+                index = random.sample(index_list, 1)[0]
+                print("{}{}".format(tmp_Vocab.get_sym(encoded_input[i]), tmp_Vocab.get_sym(index)))
 
 
 def single_core_graph_for_inference(n_token, cutoffs, is_training, inp, tgt, mems):
@@ -616,7 +630,6 @@ def get_model_fn_for_inference(n_token, cutoffs):
         if FLAGS.proj_share_all_but_first:
             for i in range(1, len(tie_projs)):
                 tie_projs[i] = True
-        # todo  明确loss含义
         loss, new_mems, output = model.transformer_inference(
             dec_inp=inp,
             target=tgt,

@@ -55,18 +55,23 @@ record_writer = tf.python_io.TFRecordWriter(save_path)
 example = tf.train.Example(features=tf.train.Features(feature=feature))
 record_writer.write(example.SerializeToString())
 
-print(encoded_input)
 
-dataset = tf.data.Dataset.from_tensors(encoded_input)
+test_list = tf.placeholder(tf.int64, shape=[1])
+dataset = tf.data.Dataset.from_tensors(test_list)
 # dataset = tf.data.TFRecordDataset(dataset)
 # dataset = dataset.map(parser)
-# dataset = dataset.batch(1, drop_remainder=True)
+dataset = dataset.batch(1, drop_remainder=True)
 
 
-input_feed = dataset.make_one_shot_iterator().get_next()
-inputs = tf.split(input_feed, 1, 0)
+# input_feed = dataset.make_one_shot_iterator().get_next()
+iterator = dataset.make_initializable_iterator()
+input_feed = iterator.get_next()
+# inputs = tf.split(input_feed, 1, 0)
+
+feed_dict = {test_list : [1]}
 
 with tf.Session() as sess:
+    sess.run(iterator.initializer, feed_dict=feed_dict)
     for i in range(1):
         value = sess.run(input_feed)
         print(value)

@@ -1,6 +1,5 @@
 import tensorflow as tf
-
-
+import sys
 def positional_embedding(pos_seq, inv_freq, bsz=None):
     sinusoid_inp = tf.einsum('i,j->ij', pos_seq, inv_freq)
     pos_emb = tf.concat([tf.sin(sinusoid_inp), tf.cos(sinusoid_inp)], -1)
@@ -449,6 +448,8 @@ def transformer(dec_inp, target, mems, n_token, n_layer, d_model, d_embed,
     perms: a list of tensors. Each tensor should of size [len, bsz, bin_size].
           Only used in the adaptive setting.
     """
+    # dec_inp = tf.Print(dec_inp, [dec_inp], "print of input: ")
+
     new_mems = []
     with tf.variable_scope(scope):
         if untie_r:
@@ -562,6 +563,7 @@ def transformer_inference(dec_inp, target, mems, n_token, n_layer, d_model, d_em
     perms: a list of tensors. Each tensor should of size [len, bsz, bin_size].
           Only used in the adaptive setting.
     """
+    # dec_inp = tf.Print(dec_inp, [dec_inp], "print of input in inference : ")
     new_mems = []
     with tf.variable_scope(scope):
         if untie_r:
