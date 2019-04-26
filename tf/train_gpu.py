@@ -500,9 +500,9 @@ def inference(n_token, cutoffs, ps_device):
 
     input_text = "要不是族长是"
     tmp_Vocab = Vocab()
-    tmp_Vocab.count_file("../data/test/train.txt", add_eos=False)
+    tmp_Vocab.count_file("../data/doupo/train.txt", add_eos=False)
     tmp_Vocab.build_vocab()
-    print(tmp_Vocab.idx2sym)
+    # print(tmp_Vocab.idx2sym)
     encoded_input = tmp_Vocab.encode_sents(input_text, ordered=True)
 
     test_list = tf.placeholder(tf.int64, shape=[1, None])
@@ -557,7 +557,7 @@ def inference(n_token, cutoffs, ps_device):
 
         fetches = [tower_new_mems, tower_output]
 
-        output_len = 100
+        output_len = 500
         for step in range(output_len):
             print('------------------------ {}-----------------------'.format(step))
             feed_dict = {}

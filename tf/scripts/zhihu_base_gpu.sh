@@ -30,7 +30,6 @@ TEST_CLAMP_LEN=400
 TEST_BSZ=10
 TEST_NUM_CORE=1
 
-
 if [[ $1 == 'train_data' ]]; then
     python data_utils_chinese.py \
         --data_dir=${DATA_ROOT}/ \
@@ -68,7 +67,7 @@ elif [[ $1 == 'train' ]]; then
         --d_inner=${D_INNER} \
         --dropout=0.1 \
         --dropatt=0.0 \
-        --learning_rate=0.001 \
+        --learning_rate=0.0005 \
         --warmup_steps=0 \
         --train_steps=400000 \
         --tgt_len=${TGT_LEN} \

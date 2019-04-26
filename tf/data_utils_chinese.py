@@ -77,10 +77,9 @@ class Corpus(object):
 
         record_info_path = os.path.join(save_dir, record_name)
 
-        if self.dataset in ["ptb", "wt2", "wt103", "enwik8", "text8", "doupo", "test"]:
+        if self.dataset in ["ptb", "wt2", "wt103", "enwik8", "text8", "doupo", "test", "zhihu"]:
             data = getattr(self, split)
 
-            print('----------{}--------------{}--------'.format(bsz, num_core_per_host))
             bin_sizes = get_bin_sizes(
                 data, bsz // num_core_per_host, tgt_len, self.cutoffs)
             file_name, num_batch = create_ordered_tfrecords(
@@ -110,7 +109,6 @@ def get_bin_sizes(data, batch_size, tgt_len, cutoffs, std_mult=[2.5, 2.5, 2.5]):
         return y + 8 if x % 8 >= 4 else max(8, y)
 
     if cutoffs:
-        print('======={}======================={}=============================='.format(batch_size, tgt_len))
         num_batch = len(data) // batch_size // tgt_len
 
         data = data[:batch_size * num_batch * tgt_len]
@@ -270,7 +268,7 @@ def get_lm_corpus(data_dir, dataset):
     else:
         print("Producing dataset...")
         kwargs = {}
-        if dataset in ["doupo", "test", "wt103"]:
+        if dataset in ["doupo", "test", "wt103", "zhihu"]:
             kwargs["special"] = ["<eos>"]
             kwargs["lower_case"] = False
 
@@ -295,8 +293,6 @@ def main(unused_argv):
     del unused_argv  # Unused
 
     corpus = get_lm_corpus(FLAGS.data_dir, FLAGS.dataset)  #
-
-    print(corpus.vocab.idx2sym)
 
     save_dir = os.path.join(FLAGS.data_dir, "tfrecords")
     if not exists(save_dir):
@@ -477,8 +473,8 @@ if __name__ == "__main__":
     FLAGS = flags.FLAGS
     flags.DEFINE_string("data_dir", None,
                         help="Location of the data corpus")
-    flags.DEFINE_enum("dataset", "doupo",
-                      ["ptb", "wt2", "wt103", "lm1b", "enwik8", "text8", "doupo", "test"],
+    flags.DEFINE_enum("dataset", "zhihu",
+                      ["ptb", "wt2", "wt103", "lm1b", "enwik8", "text8", "doupo", "test", "zhihu"],
                       help="Dataset name.")
     flags.DEFINE_integer("per_host_train_bsz", 60,
                          help="train batch size each host")
