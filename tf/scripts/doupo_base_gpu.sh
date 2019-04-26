@@ -112,7 +112,7 @@ elif [[ $1 == 'inference' ]]; then
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
-        --model_dir=EXP-doupo4 \
+        --model_dir=EXP-doupo4/lr1e4_new \
         --div_val=${DIV_VAL} \
         --untie_r=True \
         --proj_share_all_but_first=True \

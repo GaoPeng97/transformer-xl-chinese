@@ -494,15 +494,15 @@ def main(unused_argv):
 
 # new added by pgao
 def inference(n_token, cutoffs, ps_device):
-    os.environ['CUDA_VISIBLE_DEVICES'] = '7'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '9'
     # input_text = "被美杜莎一阵喝斥，那体型壮硕的墨巴斯却是没有丝毫的不耐，无奈的点了点头，不过他看向美杜莎的那眼神，却是充斥着颇为浓烈的爱慕与尊崇。 对着萧炎再次丢了一个阴沉的眼神，" \
     #              "那墨巴斯方才有些不甘的退到一 旁。 见到那家伙退开，萧炎方才散去拳又之上的碧绿火焰，对于他为何会对自己如此不满，或许从他看向美杜莎的目光中便是能够知道一点端倪，不过这到" \
     #              "并未令得萧炎如何的记挂，目光在这院落中一扫，眉头却是微微一皱，这占地面积不小的院落中，有着不少蛇人的身影，" \
     #              "而且看这些家伙的气息，明显都是蛇人族中的顶尖好手，而且那日被他救过一次的月媚也在其中。 这些蛇人族强者望向萧炎的眼神中皆是充斥着些许好奇，显然先前他一拳将墨巴斯震"
 
-    input_text = "萧炎却是，威胁之话"
+    input_text = "萧炎对着熏儿打出一掌"
     tmp_Vocab = Vocab()
-    tmp_Vocab.count_file("../data/test/train.txt", add_eos=False)
+    tmp_Vocab.count_file("../data/doupo/train.txt", add_eos=False)
     tmp_Vocab.build_vocab()
     print(tmp_Vocab.idx2sym)
     encoded_input = tmp_Vocab.encode_sents(input_text, ordered=True)
@@ -559,9 +559,9 @@ def inference(n_token, cutoffs, ps_device):
 
         fetches = [tower_new_mems, tower_output]
 
-        num_batch = 1
-        output_len = 10
-        for step in range(1):
+        output_len = 500
+        for step in range(output_len):
+            print('------------------------ {}-----------------------'.format(step))
             feed_dict = {}
             for i in range(FLAGS.num_core_per_host):
                 for m, m_np in zip(tower_mems[i], tower_mems_np[i]):
@@ -571,16 +571,23 @@ def inference(n_token, cutoffs, ps_device):
             fetched = sess.run(fetches, feed_dict=feed_dict)
 
             tower_mems_np, output = fetched[:2]
-            print(np.array(output).shape)
+            # print(np.array(output).shape)
 
-            print(encoded_input)
+            tmp_list = output[0][-1][0]
+            tmp_list = tmp_list.tolist()
+            index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[:1]
+            index = random.sample(index_list, 1)[0]
+            input_text += tmp_Vocab.get_sym(index)
+            encoded_input = [index]
 
-            for i in range(len(encoded_input)):
-                tmp_list = output[0][i][0]
-                tmp_list = tmp_list.tolist()
-                index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[:1]
-                index = random.sample(index_list, 1)[0]
-                print("{}{}".format(tmp_Vocab.get_sym(encoded_input[i]), tmp_Vocab.get_sym(index)))
+            # for i in range(len(encoded_input)):
+            #     tmp_list = output[0][i][0]
+            #     tmp_list = tmp_list.tolist()
+            #     index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[:1]
+            #     index = random.sample(index_list, 1)[0]
+            #     print("{}{}".format(tmp_Vocab.get_sym(encoded_input[i]), tmp_Vocab.get_sym(index)))
+
+        print(input_text)
 
 
 def single_core_graph_for_inference(n_token, cutoffs, is_training, inp,  mems):
