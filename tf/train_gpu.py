@@ -8,7 +8,8 @@ import os
 import math
 from vocabulary import Vocab
 from absl import flags
-
+from progressbar import ProgressBar
+import time
 import tensorflow as tf
 
 import model
@@ -498,12 +499,11 @@ def inference(n_token, cutoffs, ps_device):
     #              "并未令得萧炎如何的记挂，目光在这院落中一扫，眉头却是微微一皱，这占地面积不小的院落中，有着不少蛇人的身影，" \
     #              "而且看这些家伙的气息，明显都是蛇人族中的顶尖好手，而且那日被他救过一次的月媚也在其中。 这些蛇人族强者望向萧炎的眼神中皆是充斥着些许好奇，显然先前他一拳将墨巴斯震"
 
-    input_text = "要不是族长是"
+    # input_text = "要不是族长是"
     tmp_Vocab = Vocab()
-    tmp_Vocab.count_file("../data/doupo/train.txt", add_eos=False)
+    tmp_Vocab.count_file("../data/poetry/train.txt", add_eos=False)
     tmp_Vocab.build_vocab()
     # print(tmp_Vocab.idx2sym)
-    encoded_input = tmp_Vocab.encode_sents(input_text, ordered=True)
 
     test_list = tf.placeholder(tf.int64, shape=[1, None])
     dataset = tf.data.Dataset.from_tensors(test_list)
@@ -557,35 +557,43 @@ def inference(n_token, cutoffs, ps_device):
 
         fetches = [tower_new_mems, tower_output]
 
-        output_len = 500
-        for step in range(output_len):
-            print('------------------------ {}-----------------------'.format(step))
-            feed_dict = {}
-            for i in range(FLAGS.num_core_per_host):
-                for m, m_np in zip(tower_mems[i], tower_mems_np[i]):
-                    feed_dict[m] = m_np
+        while True:
+            input_text = input("seed text >>> ")
+            while not input_text:
+                print('Prompt should not be empty!')
+                input_text = input("Model prompt >>> ")
+            encoded_input = tmp_Vocab.encode_sents(input_text, ordered=True)
 
-            sess.run(iterator.initializer, feed_dict={test_list: [encoded_input]})
-            fetched = sess.run(fetches, feed_dict=feed_dict)
+            output_len = 100
+            progress = ProgressBar()
+            for step in progress(range(output_len)):
+                time.sleep(0.01)
+                feed_dict = {}
+                for i in range(FLAGS.num_core_per_host):
+                    for m, m_np in zip(tower_mems[i], tower_mems_np[i]):
+                        feed_dict[m] = m_np
 
-            tower_mems_np, output = fetched[:2]
-            # print(np.array(output).shape)
+                sess.run(iterator.initializer, feed_dict={test_list: [encoded_input]})
+                fetched = sess.run(fetches, feed_dict=feed_dict)
 
-            tmp_list = output[0][-1][0]
-            tmp_list = tmp_list.tolist()
-            index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[:1]
-            index = random.sample(index_list, 1)[0]
-            input_text += tmp_Vocab.get_sym(index)
-            encoded_input = [index]
+                tower_mems_np, output = fetched[:2]
+                # print(np.array(output).shape)
 
-            # for i in range(len(encoded_input)):
-            #     tmp_list = output[0][i][0]
-            #     tmp_list = tmp_list.tolist()
-            #     index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[:1]
-            #     index = random.sample(index_list, 1)[0]
-            #     print("{}{}".format(tmp_Vocab.get_sym(encoded_input[i]), tmp_Vocab.get_sym(index)))
+                tmp_list = output[0][-1][0]
+                tmp_list = tmp_list.tolist()
+                index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[:1]
+                index = random.sample(index_list, 1)[0]
+                input_text += tmp_Vocab.get_sym(index)
+                encoded_input = [index]
 
-        print(input_text)
+                # for i in range(len(encoded_input)):
+                #     tmp_list = output[0][i][0]
+                #     tmp_list = tmp_list.tolist()
+                #     index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[:1]
+                #     index = random.sample(index_list, 1)[0]
+                #     print("{}{}".format(tmp_Vocab.get_sym(encoded_input[i]), tmp_Vocab.get_sym(index)))
+
+            print(input_text)
 
 
 def single_core_graph_for_inference(n_token, cutoffs, is_training, inp,  mems):

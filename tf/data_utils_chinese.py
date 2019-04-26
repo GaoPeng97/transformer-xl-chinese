@@ -55,7 +55,7 @@ class Corpus(object):
         self.train = self.vocab.encode_file(
             os.path.join(path, "train.txt"), ordered=True)
         self.valid = self.vocab.encode_file(
-            os.path.join(path, "train.txt"), ordered=True)
+            os.path.join(path, "valid.txt"), ordered=True)
         self.test = self.vocab.encode_file(
             os.path.join(path, "train.txt"), ordered=True)
 
@@ -77,7 +77,7 @@ class Corpus(object):
 
         record_info_path = os.path.join(save_dir, record_name)
 
-        if self.dataset in ["ptb", "wt2", "wt103", "enwik8", "text8", "doupo", "test", "zhihu"]:
+        if self.dataset in ["ptb", "wt2", "wt103", "enwik8", "text8", "doupo", "test", "zhihu", "poetry"]:
             data = getattr(self, split)
 
             bin_sizes = get_bin_sizes(
@@ -268,7 +268,7 @@ def get_lm_corpus(data_dir, dataset):
     else:
         print("Producing dataset...")
         kwargs = {}
-        if dataset in ["doupo", "test", "wt103", "zhihu"]:
+        if dataset in ["doupo", "test", "wt103", "zhihu", "poetry"]:
             kwargs["special"] = ["<eos>"]
             kwargs["lower_case"] = False
 
@@ -473,8 +473,8 @@ if __name__ == "__main__":
     FLAGS = flags.FLAGS
     flags.DEFINE_string("data_dir", None,
                         help="Location of the data corpus")
-    flags.DEFINE_enum("dataset", "zhihu",
-                      ["ptb", "wt2", "wt103", "lm1b", "enwik8", "text8", "doupo", "test", "zhihu"],
+    flags.DEFINE_enum("dataset", "poetry",
+                      ["ptb", "wt2", "wt103", "lm1b", "enwik8", "text8", "doupo", "test", "zhihu", "poetry"],
                       help="Dataset name.")
     flags.DEFINE_integer("per_host_train_bsz", 60,
                          help="train batch size each host")

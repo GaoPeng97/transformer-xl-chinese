@@ -3,7 +3,7 @@
 #!/bin/bash
 
 # Data
-DATA_ROOT=../data/zhihu/
+DATA_ROOT=../data/poetry/
 
 # Model
 DIV_VAL=1
@@ -15,12 +15,12 @@ D_HEAD=41
 D_INNER=2100
 
 # Training
-TGT_LEN=100
-MEM_LEN=100
+TGT_LEN=20
+MEM_LEN=20
 
 
-BSZ=256
-NUM_CORE=8
+BSZ=64
+NUM_CORE=2
 
 # Testing
 TEST_TGT_LEN=64
@@ -33,7 +33,7 @@ TEST_NUM_CORE=1
 if [[ $1 == 'train_data' ]]; then
     python data_utils_chinese.py \
         --data_dir=${DATA_ROOT}/ \
-        --dataset=zhihu \
+        --dataset=poetry \
         --tgt_len=${TGT_LEN} \
         --per_host_train_bsz=${BSZ} \
         --per_host_valid_bsz=${BSZ} \
@@ -43,7 +43,7 @@ if [[ $1 == 'train_data' ]]; then
 elif [[ $1 == 'test_data' ]]; then
     python data_utils_chinese.py \
         --data_dir=${DATA_ROOT}/ \
-        --dataset=zhihu \
+        --dataset=poetry \
         --tgt_len=${TEST_TGT_LEN} \
         --per_host_test_bsz=${TEST_BSZ} \
         --num_passes=1 \
@@ -51,11 +51,11 @@ elif [[ $1 == 'test_data' ]]; then
         ${@:2}
 elif [[ $1 == 'train' ]]; then
     echo 'Run training...'
- CUDA_VISIBLE_DEVICES='2,3,4,5,6,7,8,9'   python train_gpu.py \
+ CUDA_VISIBLE_DEVICES='8,9'   python train_gpu.py \
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
-        --model_dir=EXP-zhihu \
+        --model_dir=EXP-poetry \
         --div_val=${DIV_VAL} \
         --untie_r=True \
         --proj_share_all_but_first=True \
@@ -67,7 +67,7 @@ elif [[ $1 == 'train' ]]; then
         --d_inner=${D_INNER} \
         --dropout=0.1 \
         --dropatt=0.0 \
-        --learning_rate=0.0005 \
+        --learning_rate=0.0001 \
         --warmup_steps=0 \
         --train_steps=400000 \
         --tgt_len=${TGT_LEN} \
@@ -83,7 +83,7 @@ elif [[ $1 == 'inference' ]]; then
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
-        --model_dir=EXP-zhihu \
+        --model_dir=EXP-poetry \
         --div_val=${DIV_VAL} \
         --untie_r=True \
         --proj_share_all_but_first=True \
