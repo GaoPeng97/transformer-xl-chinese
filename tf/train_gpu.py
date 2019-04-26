@@ -6,10 +6,8 @@ import os
 # os.environ['CUDA_VISIBLE_DEVICES'] = '8,9'
 
 import math
-import time
 from vocabulary import Vocab
 from absl import flags
-import absl.logging as _logging  # pylint: disable=unused-import
 
 import tensorflow as tf
 
