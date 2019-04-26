@@ -224,7 +224,7 @@ def single_core_graph(n_token, cutoffs, is_training, inp, tgt, mems):
 
 
 def train(n_token, cutoffs, ps_device):
-    os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
 
     # Get input function and model function
     train_input_fn, train_record_info = data_utils.get_input_fn(
@@ -332,7 +332,7 @@ def train(n_token, cutoffs, ps_device):
         sess.run(tf.global_variables_initializer())
 
         # todo 放在 此处是因为不用重复的创建trainer目录能显示变量
-        train_writer = tf.summary.FileWriter(os.path.join(FLAGS.model_dir, "lr5e4/log"), sess.graph)
+        train_writer = tf.summary.FileWriter(os.path.join(FLAGS.model_dir, "log"), sess.graph)
 
         if FLAGS.warm_start_path is not None:
             tf.logging.info("warm start from {}".format(FLAGS.warm_start_path))
@@ -364,7 +364,7 @@ def train(n_token, cutoffs, ps_device):
                 train_writer.add_summary(summary, curr_step)
 
             if curr_step > 0 and curr_step % FLAGS.save_steps == 0:
-                save_path = os.path.join(FLAGS.model_dir, "lr5e4/model-{}.ckpt".format(curr_step))
+                save_path = os.path.join(FLAGS.model_dir, "model-{}.ckpt".format(curr_step))
                 saver.save(sess, save_path)
                 tf.logging.info("Model saved in path: {}".format(save_path))
 
@@ -492,15 +492,15 @@ def main(unused_argv):
 
 # new added by pgao
 def inference(n_token, cutoffs, ps_device):
-    os.environ['CUDA_VISIBLE_DEVICES'] = '9'
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '9'
     # input_text = "被美杜莎一阵喝斥，那体型壮硕的墨巴斯却是没有丝毫的不耐，无奈的点了点头，不过他看向美杜莎的那眼神，却是充斥着颇为浓烈的爱慕与尊崇。 对着萧炎再次丢了一个阴沉的眼神，" \
     #              "那墨巴斯方才有些不甘的退到一 旁。 见到那家伙退开，萧炎方才散去拳又之上的碧绿火焰，对于他为何会对自己如此不满，或许从他看向美杜莎的目光中便是能够知道一点端倪，不过这到" \
     #              "并未令得萧炎如何的记挂，目光在这院落中一扫，眉头却是微微一皱，这占地面积不小的院落中，有着不少蛇人的身影，" \
     #              "而且看这些家伙的气息，明显都是蛇人族中的顶尖好手，而且那日被他救过一次的月媚也在其中。 这些蛇人族强者望向萧炎的眼神中皆是充斥着些许好奇，显然先前他一拳将墨巴斯震"
 
-    input_text = "萧炎对着熏儿打出一掌"
+    input_text = "要不是族长是"
     tmp_Vocab = Vocab()
-    tmp_Vocab.count_file("../data/doupo/train.txt", add_eos=False)
+    tmp_Vocab.count_file("../data/test/train.txt", add_eos=False)
     tmp_Vocab.build_vocab()
     print(tmp_Vocab.idx2sym)
     encoded_input = tmp_Vocab.encode_sents(input_text, ordered=True)
@@ -557,7 +557,7 @@ def inference(n_token, cutoffs, ps_device):
 
         fetches = [tower_new_mems, tower_output]
 
-        output_len = 500
+        output_len = 100
         for step in range(output_len):
             print('------------------------ {}-----------------------'.format(step))
             feed_dict = {}
