@@ -501,7 +501,7 @@ def inference(n_token, cutoffs, ps_device):
 
     # input_text = "要不是族长是"
     tmp_Vocab = Vocab()
-    tmp_Vocab.count_file("../data/poetry/train.txt", add_eos=False)
+    tmp_Vocab.count_file("../data/doupo/train.txt", add_eos=False)
     tmp_Vocab.build_vocab()
     # print(tmp_Vocab.idx2sym)
 
@@ -513,6 +513,7 @@ def inference(n_token, cutoffs, ps_device):
     input_feed = iterator.get_next()
 
     inputs = tf.split(input_feed, FLAGS.num_core_per_host, 0)
+    # inputs = input_feed
 
     per_core_bsz = 1
     tower_mems, tower_losses, tower_new_mems = [], [], []
@@ -564,7 +565,7 @@ def inference(n_token, cutoffs, ps_device):
                 input_text = input("Model prompt >>> ")
             encoded_input = tmp_Vocab.encode_sents(input_text, ordered=True)
 
-            output_len = 100
+            output_len = 2000
             progress = ProgressBar()
             for step in progress(range(output_len)):
                 time.sleep(0.01)

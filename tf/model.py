@@ -1,5 +1,7 @@
 import tensorflow as tf
 import sys
+
+
 def positional_embedding(pos_seq, inv_freq, bsz=None):
     sinusoid_inp = tf.einsum('i,j->ij', pos_seq, inv_freq)
     pos_emb = tf.concat([tf.sin(sinusoid_inp), tf.cos(sinusoid_inp)], -1)

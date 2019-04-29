@@ -79,7 +79,7 @@ elif [[ $1 == 'train' ]]; then
         ${@:2}
 elif [[ $1 == 'inference' ]]; then
     echo 'Run inference...'
- CUDA_VISIBLE_DEVICES='0'   python train_gpu.py \
+ CUDA_VISIBLE_DEVICES='9'   python train_gpu.py \
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
