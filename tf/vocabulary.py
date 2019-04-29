@@ -25,6 +25,12 @@ class Vocab(object):
         self.idx2sym = []
         self.sym2idx = OrderedDict()           # todo  确定这里有没有问题
 
+        # for zhihu dataset
+        # todo delete here when test other datasets
+        self.min_freq = 100
+        self.add_symbol('<UNK>')
+        self.unk_idx = self.get_idx('<UNK>')
+
     def tokenize(self, line, add_eos=False, add_double_eos=False):
         line = line.strip()
         symbols = list(line)
@@ -94,7 +100,7 @@ class Vocab(object):
             tmp = sorted(self.counter.items(), key=lambda item:item[0])
             for sym, cnt in tmp:
                 if cnt < self.min_freq:
-                    break
+                    continue
                 self.add_symbol(sym)
 
             print('final vocab size {} from {} unique tokens'.format(
