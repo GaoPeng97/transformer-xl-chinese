@@ -27,9 +27,9 @@ class Vocab(object):
 
         # for zhihu dataset
         # todo delete here when test other datasets
-        self.min_freq = 100
-        self.add_symbol('<UNK>')
-        self.unk_idx = self.get_idx('<UNK>')
+        # self.min_freq = 100
+        # self.add_symbol('<UNK>')
+        # self.unk_idx = self.get_idx('<UNK>')
 
     def tokenize(self, line, add_eos=False, add_double_eos=False):
         line = line.strip()

@@ -19,6 +19,8 @@ import random
 from gpu_utils import assign_to_gpu, average_grads_and_vars
 
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
 
 # GPU config
 flags.DEFINE_integer("num_hosts", default=1,
@@ -503,6 +505,8 @@ def inference(n_token, cutoffs, ps_device):
     tmp_Vocab = Vocab()
     tmp_Vocab.count_file("../data/doupo/train.txt", add_eos=False)
     tmp_Vocab.build_vocab()
+
+    n_token = len(tmp_Vocab)
     # print(tmp_Vocab.idx2sym)
 
     test_list = tf.placeholder(tf.int64, shape=[1, None])
@@ -518,6 +522,9 @@ def inference(n_token, cutoffs, ps_device):
     per_core_bsz = 1
     tower_mems, tower_losses, tower_new_mems = [], [], []
     tower_output = []
+    tower_mems_id = []
+    tower_new_mems_id = []
+    tower_attn_prob = []
 
     for i in range(FLAGS.num_core_per_host):
         with tf.device(assign_to_gpu(i, ps_device)), \
@@ -526,20 +533,34 @@ def inference(n_token, cutoffs, ps_device):
                                      [FLAGS.mem_len, per_core_bsz, FLAGS.d_model])
                       for _ in range(FLAGS.n_layer)]
 
-            new_mems_i, output_i = single_core_graph_for_inference(
+            mems_i_id = [tf.placeholder(tf.int64,
+                                     [FLAGS.mem_len, per_core_bsz])
+                      for _ in range(FLAGS.n_layer)]
+
+            new_mems_i, output_i, new_mems_i_id, attn_prob_i = single_core_graph_for_inference(
                 n_token=n_token,
                 cutoffs=cutoffs,
                 is_training=False,
                 inp=inputs[i],
-                mems=mems_i)
+                mems=mems_i,
+                mems_id=mems_i_id)
 
             tower_mems.append(mems_i)
             tower_new_mems.append(new_mems_i)
             tower_output.append(output_i)
+            tower_mems_id.append(mems_i_id)
+            tower_new_mems_id.append(new_mems_i_id)
+            tower_attn_prob.append(attn_prob_i)
 
     # Evaluation loop
     tower_mems_np = [
         [np.zeros([FLAGS.mem_len, per_core_bsz, FLAGS.d_model], dtype=np.float32)
+         for layer in range(FLAGS.n_layer)]
+        for core in range(FLAGS.num_core_per_host)
+    ]
+
+    tower_mems_id_np = [
+        [np.zeros([FLAGS.mem_len, per_core_bsz], dtype=np.float32)
          for layer in range(FLAGS.n_layer)]
         for core in range(FLAGS.num_core_per_host)
     ]
@@ -556,7 +577,9 @@ def inference(n_token, cutoffs, ps_device):
 
         saver.restore(sess, eval_ckpt_path)
 
-        fetches = [tower_new_mems, tower_output]
+        # attention_score = tf.get_variable('transformer/layer_2/rel_attn/transpose_1:0')
+
+        fetches = [tower_new_mems, tower_output, tower_new_mems_id, tower_attn_prob]
 
         while True:
             input_text = input("seed text >>> ")
@@ -565,7 +588,7 @@ def inference(n_token, cutoffs, ps_device):
                 input_text = input("Model prompt >>> ")
             encoded_input = tmp_Vocab.encode_sents(input_text, ordered=True)
 
-            output_len = 2000
+            output_len = 1
             progress = ProgressBar()
             for step in progress(range(output_len)):
                 time.sleep(0.01)
@@ -574,17 +597,26 @@ def inference(n_token, cutoffs, ps_device):
                     for m, m_np in zip(tower_mems[i], tower_mems_np[i]):
                         feed_dict[m] = m_np
 
+                    for id, id_np in zip(tower_mems_id[i], tower_mems_id_np[i]):
+                        feed_dict[id] = id_np
+
                 sess.run(iterator.initializer, feed_dict={test_list: [encoded_input]})
                 fetched = sess.run(fetches, feed_dict=feed_dict)
 
                 tower_mems_np, output = fetched[:2]
+
+                tower_mems_id_np = fetched[2]
+
+                attn_prob = fetched[3]
+                # print(attention_score)
+                # print(np.array(attn_prob).shape)
                 # print(np.array(output).shape)
 
                 tmp_list = output[0][-1][0]
                 tmp_list = tmp_list.tolist()
                 index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[:1]
                 index = random.sample(index_list, 1)[0]
-                input_text += tmp_Vocab.get_sym(index)
+                input_text += tmp_Vocab.get_sym(index) if tmp_Vocab.get_sym(index) != '<eos>' else '\n'
                 encoded_input = [index]
 
                 # for i in range(len(encoded_input)):
@@ -594,10 +626,45 @@ def inference(n_token, cutoffs, ps_device):
                 #     index = random.sample(index_list, 1)[0]
                 #     print("{}{}".format(tmp_Vocab.get_sym(encoded_input[i]), tmp_Vocab.get_sym(index)))
 
+                # todo 作图
+                xLabel = tmp_Vocab.get_symbols([tower_mems_id_np[0][0][i][0] for i in range(100)])
+                yLabel = list(range(0, 16))
+
+                # 准备数据阶段，利用random生成二维数据（5*5）
+                font_file = 'DroidSansFallbackFull.ttf'
+                my_font = FontProperties(fname=font_file)
+
+                data = []
+                for i in range(len(yLabel)):
+                    temp = []
+                    for j in range(len(xLabel)):
+                        k = attn_prob[0][i][0][j][0][0]
+                        temp.append(k)
+                    data.append(temp)
+
+                # 作图阶段
+                fig = plt.figure(figsize=(16, 12))
+                # 定义画布为1*1个划分，并在第1个位置上进行作图
+                ax = fig.add_subplot(111)
+
+                # 定义横纵坐标的刻度
+                ax.set_yticks(range(len(yLabel)))
+                ax.set_yticklabels(yLabel)
+                ax.set_xticks(range(len(xLabel)))
+                ax.set_xticklabels(xLabel, fontproperties=my_font, rotation=90, size=5)
+                # 作图并选择热图的颜色填充风格，这里选择hot
+                im = ax.imshow(data, cmap=plt.cm.hot_r)
+                # 增加右侧的颜色刻度条
+                # plt.colorbar(im)
+                # 增加标题
+                plt.title("This is a title")
+                # # show
+                plt.show()
+
             print(input_text)
 
 
-def single_core_graph_for_inference(n_token, cutoffs, is_training, inp,  mems):
+def single_core_graph_for_inference(n_token, cutoffs, is_training, inp,  mems, mems_id):
     model_fn = get_model_fn_for_inference(
         n_token=n_token,
         cutoffs=cutoffs)
@@ -605,13 +672,14 @@ def single_core_graph_for_inference(n_token, cutoffs, is_training, inp,  mems):
     model_ret = model_fn(
         inp=inp,
         mems=mems,
+        mems_id=mems_id,
         is_training=is_training)
 
     return model_ret
 
 
 def get_model_fn_for_inference(n_token, cutoffs):
-    def model_fn(inp, mems, is_training):
+    def model_fn(inp, mems, mems_id, is_training):
         inp = tf.transpose(inp, [1, 0])
 
         if FLAGS.init == "uniform":
@@ -631,9 +699,10 @@ def get_model_fn_for_inference(n_token, cutoffs):
         if FLAGS.proj_share_all_but_first:
             for i in range(1, len(tie_projs)):
                 tie_projs[i] = True
-        new_mems, output = model.transformer_inference(
+        new_mems, output, new_mems_id, attn_prob = model.transformer_inference(
             dec_inp=inp,
             mems=mems,
+            mems_id=mems_id,
             n_token=n_token,
             n_layer=FLAGS.n_layer,
             d_model=FLAGS.d_model,
@@ -663,7 +732,7 @@ def get_model_fn_for_inference(n_token, cutoffs):
         num_params = sum([np.prod(v.shape) for v in tf.trainable_variables()])
         tf.logging.info('#params: {}'.format(num_params))
 
-        return new_mems, output
+        return new_mems, output, new_mems_id, attn_prob
 
     return model_fn
 
