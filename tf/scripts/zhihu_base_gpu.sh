@@ -14,9 +14,9 @@ N_HEAD=10
 D_HEAD=41
 D_INNER=2100
 
-# Training
+# Training 前面的target len都是100 mem_len=500的实验是300
 TGT_LEN=100
-MEM_LEN=100
+MEM_LEN=500
 
 
 BSZ=256
@@ -25,11 +25,18 @@ NUM_CORE=8
 #NUM_CORE=2
 
 # Testing
-TEST_TGT_LEN=64
-TEST_MEM_LEN=640
+#TEST_TGT_LEN=64
+#TEST_MEM_LEN=640
+#TEST_CLAMP_LEN=400
+#
+#TEST_BSZ=10
+#TEST_NUM_CORE=1
+
+TEST_TGT_LEN=100
+TEST_MEM_LEN=500
 TEST_CLAMP_LEN=400
 
-TEST_BSZ=10
+TEST_BSZ=1
 TEST_NUM_CORE=1
 
 if [[ $1 == 'train_data' ]]; then
@@ -53,11 +60,11 @@ elif [[ $1 == 'test_data' ]]; then
         ${@:2}
 elif [[ $1 == 'train' ]]; then
     echo 'Run training...'
- CUDA_VISIBLE_DEVICES='0, 1, 2, 3, 6, 7, 8, 9'   python train_gpu.py \
+ CUDA_VISIBLE_DEVICES='1, 2, 3, 4, 6, 7, 8, 9'   python train_gpu.py \
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
-        --model_dir=EXP-zhihu-reduce_tokens_minf_100 \
+        --model_dir=EXP-zhihu-mem_len_500 \
         --div_val=${DIV_VAL} \
         --untie_r=True \
         --proj_share_all_but_first=True \
@@ -81,11 +88,11 @@ elif [[ $1 == 'train' ]]; then
         ${@:2}
 elif [[ $1 == 'inference' ]]; then
     echo 'Run inference...'
- CUDA_VISIBLE_DEVICES='9'   python train_gpu.py \
+ CUDA_VISIBLE_DEVICES='0'   python train_gpu.py \
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
-        --model_dir=EXP-zhihu-reduce_tokens_minf_100 \
+        --model_dir=EXP-zhihu \
         --div_val=${DIV_VAL} \
         --untie_r=True \
         --proj_share_all_but_first=True \

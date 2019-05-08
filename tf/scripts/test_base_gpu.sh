@@ -13,21 +13,29 @@ D_HEAD=41
 D_INNER=2100
 
 # Training
-TGT_LEN=100
-MEM_LEN=100
-
+#TGT_LEN=100
+#MEM_LEN=100
+TGT_LEN=200
+MEM_LEN=200
 
 BSZ=64
-NUM_CORE=2
+NUM_CORE=4
 
 # Testing
-TEST_TGT_LEN=64
-TEST_MEM_LEN=640
+#TEST_TGT_LEN=64
+#TEST_MEM_LEN=640
+#TEST_CLAMP_LEN=400
+#
+#TEST_BSZ=10
+#TEST_NUM_CORE=1
+
+
+TEST_TGT_LEN=100
+TEST_MEM_LEN=300
 TEST_CLAMP_LEN=400
 
-TEST_BSZ=10
+TEST_BSZ=1
 TEST_NUM_CORE=1
-
 #cuda info
 
 
@@ -53,11 +61,11 @@ elif [[ $1 == 'test_data' ]]; then
         ${@:2}
 elif [[ $1 == 'train' ]]; then
     echo 'Run training...'
-   CUDA_VISIBLE_DEVICES='8,9' python train_gpu.py \
+   CUDA_VISIBLE_DEVICES='6,7,8,9' python train_gpu.py \
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
-        --model_dir=EXP-test-1e-3 \
+        --model_dir=EXP-test-1e4-memlen_200-80k \
         --div_val=${DIV_VAL} \
         --untie_r=True \
         --proj_share_all_but_first=True \
@@ -69,23 +77,23 @@ elif [[ $1 == 'train' ]]; then
         --d_inner=${D_INNER} \
         --dropout=0.1 \
         --dropatt=0.0 \
-        --learning_rate=0.001 \
+        --learning_rate=0.0001 \
         --warmup_steps=0 \
-        --train_steps=400000 \
+        --train_steps=5000000 \
         --tgt_len=${TGT_LEN} \
         --mem_len=${MEM_LEN} \
         --train_batch_size=${BSZ} \
         --num_core_per_host=${NUM_CORE} \
         --iterations=200 \
-        --save_steps=800 \
+        --save_steps=4000 \
         ${@:2}
 elif [[ $1 == 'inference' ]]; then
     echo 'Run inference...'
-   CUDA_VISIBLE_DEVICES='9' python train_gpu.py \
+   CUDA_VISIBLE_DEVICES='0' python train_gpu.py \
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
-        --model_dir=EXP-test-1e-4 \
+        --model_dir=EXP-test-1e4-80k \
         --div_val=${DIV_VAL} \
         --untie_r=True \
         --proj_share_all_but_first=True \

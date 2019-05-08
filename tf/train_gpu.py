@@ -21,6 +21,7 @@ from gpu_utils import assign_to_gpu, average_grads_and_vars
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
+from visualize_attention import visualize_attention_per_head, visualize_prob, visualize_attention_per_layer
 
 # GPU config
 flags.DEFINE_integer("num_hosts", default=1,
@@ -502,8 +503,9 @@ def inference(n_token, cutoffs, ps_device):
     #              "而且看这些家伙的气息，明显都是蛇人族中的顶尖好手，而且那日被他救过一次的月媚也在其中。 这些蛇人族强者望向萧炎的眼神中皆是充斥着些许好奇，显然先前他一拳将墨巴斯震"
 
     # input_text = "要不是族长是"
+    dataset_name = "doupo"
     tmp_Vocab = Vocab()
-    tmp_Vocab.count_file("../data/doupo/train.txt", add_eos=False)
+    tmp_Vocab.count_file("../data/{}/train.txt".format(dataset_name), add_eos=False)
     tmp_Vocab.build_vocab()
 
     n_token = len(tmp_Vocab)
@@ -588,7 +590,12 @@ def inference(n_token, cutoffs, ps_device):
                 input_text = input("Model prompt >>> ")
             encoded_input = tmp_Vocab.encode_sents(input_text, ordered=True)
 
-            output_len = 1
+            with open('{}.txt'.format(dataset_name), 'a') as f:
+                f.write('-' * 100+'\n')
+                f.write('input:\n')
+                f.write(input_text+'\n')
+
+            output_len = 1000
             progress = ProgressBar()
             for step in progress(range(output_len)):
                 time.sleep(0.01)
@@ -610,58 +617,37 @@ def inference(n_token, cutoffs, ps_device):
                 attn_prob = fetched[3]
                 # print(attention_score)
                 # print(np.array(attn_prob).shape)
-                # print(np.array(output).shape)
+                # print(np.array(tower_mems_id_np).shape)
 
                 tmp_list = output[0][-1][0]
                 tmp_list = tmp_list.tolist()
                 index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[:1]
+
+                if(index_list[0] == tmp_Vocab.get_idx(' ')):
+                    index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[1:2]
+
                 index = random.sample(index_list, 1)[0]
+                # todo 设置阈值随机选取候选词
+                # if(float(tmp_list[index_list[0]]) / tmp_list[index_list[1]] > 1.5):
+                #     index = index_list[0]
+                # todo 可视化候选词
+                # visualize_prob(tmp_Vocab, tmp_list, '../exp_result/{}/candidates'.format(dataset_name), len(input_text))
                 input_text += tmp_Vocab.get_sym(index) if tmp_Vocab.get_sym(index) != '<eos>' else '\n'
                 encoded_input = [index]
 
-                # for i in range(len(encoded_input)):
-                #     tmp_list = output[0][i][0]
-                #     tmp_list = tmp_list.tolist()
-                #     index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[:1]
-                #     index = random.sample(index_list, 1)[0]
-                #     print("{}{}".format(tmp_Vocab.get_sym(encoded_input[i]), tmp_Vocab.get_sym(index)))
-
-                # todo 作图
-                xLabel = tmp_Vocab.get_symbols([tower_mems_id_np[0][0][i][0] for i in range(100)])
-                yLabel = list(range(0, 16))
-
-                # 准备数据阶段，利用random生成二维数据（5*5）
-                font_file = 'DroidSansFallbackFull.ttf'
-                my_font = FontProperties(fname=font_file)
-
-                data = []
-                for i in range(len(yLabel)):
-                    temp = []
-                    for j in range(len(xLabel)):
-                        k = attn_prob[0][i][0][j][0][0]
-                        temp.append(k)
-                    data.append(temp)
-
-                # 作图阶段
-                fig = plt.figure(figsize=(16, 12))
-                # 定义画布为1*1个划分，并在第1个位置上进行作图
-                ax = fig.add_subplot(111)
-
-                # 定义横纵坐标的刻度
-                ax.set_yticks(range(len(yLabel)))
-                ax.set_yticklabels(yLabel)
-                ax.set_xticks(range(len(xLabel)))
-                ax.set_xticklabels(xLabel, fontproperties=my_font, rotation=90, size=5)
-                # 作图并选择热图的颜色填充风格，这里选择hot
-                im = ax.imshow(data, cmap=plt.cm.hot_r)
-                # 增加右侧的颜色刻度条
-                # plt.colorbar(im)
-                # 增加标题
-                plt.title("This is a title")
-                # # show
-                plt.show()
+                # # todo 可视化attention per layer
+                # visualize_attention_per_layer(tmp_Vocab, tower_mems_id_np, attn_prob, index,
+                #                               '../exp_result/{}/attention_per_layer'.format(dataset_name), len(input_text))
+                # #
+                # # todo 可视化attention per head
+                # visualize_attention_per_head(tmp_Vocab, tower_mems_id_np, attn_prob, index,
+                #                              '../exp_result/{}/attention_per_layer'.format(dataset_name), len(input_text))
 
             print(input_text)
+            with open('{}.txt'.format(dataset_name), 'a') as f:
+                f.write('output:\n')
+                f.write(input_text+'\n')
+                f.write('-'*100+'\n')
 
 
 def single_core_graph_for_inference(n_token, cutoffs, is_training, inp,  mems, mems_id):
