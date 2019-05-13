@@ -1,34 +1,75 @@
-# Transformer-XL: Attentive Language Models Beyond a Fixed-Length Context
+### 生成结果示例
 
-This repository contains the code in both **PyTorch** and **TensorFlow** for our paper
->[Transformer-XL: Attentive Language Models Beyond a Fixed-Length Context](http://arxiv.org/abs/1901.02860)
++ 斗破苍穹续写：
 
->Zihang Dai\*, Zhilin Yang\*, Yiming Yang, Jaime Carbonell, Quoc V. Le, Ruslan Salakhutdinov (*: equal contribution)
+  ```
+  萧炎对这威胁之话还是感到陌生，若非他灵魂力量同样不弱的话，恐怕早就忍不住的出手了。
+  
+  “呵呵，小家伙，既然你已经晋入了斗宗层次，那我也不再有半点留手，你体内的那种能量，应该也是处于天境后期吧？”萧炎一笑，在提醒了一声后，便是再度闭目养神。
+  
+  听得萧炎这话，一旁的薰儿眼眸也是微微眯了起来，她知道萧炎体内，有着一个古怪的内院存在，如今好不容易得到异火，却是根本就没有半点的可信性。
+  
+  “那便继续等，他们继续出手！”
+  
+  萧炎咬着牙，手印变动，体内斗气顿时在身体表面翻腾而起，旋即一个奇异的符文缓缓出现在其手掌上，漆黑的眸子中，闪烁着森寒之色。
+  
+  “萧炎哥哥，恭喜你了，萧族的事，交给我便好。”
+  
+  听得萧炎那般淡淡的话语，薰儿脸颊也是微变，缓缓的道。
+  
+  “我倒是希望你能走到今天的”萧炎笑了笑，他知道薰儿嘴中所说的那一句话，或许便是最好的事。
+  
+  “我知道你对自己迁移到你的身体有些不太满意吧？”薰儿眼波流转，却是并未否认。
+  
+  萧炎眉头微皱，刚欲说话，一旁的萧玄却是突然低声道：“我想，你应该是认为我们萧族会对我所说的话有着不小的一些芥蒂。”
+  ```
 
->Preprint 2018
++ 古诗生成：
 
-## TensorFlow
+  ```
+  一身走四海，万事付悠悠。贫病不相弃，饥寒难自谋。风霜欺病骨，烟雨暗归愁。近日思归梦，空台南望留。
+  
+  天涯望不极，此夜又秋残。此处谁同赏，从来恨独难。月明风正凛，霜冷夜应寒。独倚栏干思，清光几处看。
+  
+  山色初晴水色鲜，幽禽啼唤雨余天。客心自觉空如梦，世事休论更可怜。老眼开时花自笑，残年厄闰草堪怜。一筇破衲同春睡，谁与浇愁入酒泉。
+  
+  清溪一曲绕茅堂，溪上秋风透短墙。草木扶疏迷远径，山川清澹接高阳。诗情到处成三叹，酒兴知时变一觞。我亦放怀非独乐，拟将闲事寄僧房。
+  ```
 
-- The source code is in the `tf/` folder, supporting (1) single-node multi-gpu training, and (2) multi-host TPU training.
-- Besides the source code, we also provide pretrained "TensorFlow" models with state-of-the-art (SoTA) performances reported in the paper.
-- Please refer to `tf/README.md` for details.
++ 日常话题生成：
 
-## PyTorch
+  ```
+  这么说的花费了大部分人的时间，也就是说这个人的行为，不是什么有价值，是什么区别在于有没有价值，是否有有价值，是否有有价值这个有意思的。我们大部分人的奇葩只是分享的时间，是否能够分辨出来，看看他们的生活，生活中的实际需求。以上。我觉得可以参考下我个人的情况，看看他们在做什么，哪怕是错的，哪怕是错的，这个男人是一个单纯的，这个女孩子怎么样，对生活有着美好的想法的可以随着你们的想法，在这个女孩子的想法中，发现自己
+  ```
 
-- The source code is in the `pytorch/` folder, supporting single-node multi-gpu training via the module `nn.DataParallel`.
-- Please refer to `pytorch/README.md` for details.
+### 介绍
 
-## Results
+实现了基于tranformer xl进行文本生成任务，代码基于https://github.com/kimiyoung/transformer-xl，感谢他们的工作。主要改动在下面几个地方：
 
-Transformer-XL achieves new state-of-the-art results on multiple language modeling benchmarks. Transformer-XL is also the first to break through the 1.0 barrier on char-level language modeling. Below is a summary.
++ 原本的代码只有training 和 eval，增加了inference 部分，主要在train_gpu中增加了inference 函数以及相应函数的改变。
++ 增加了可视化每一层attention以及查看每个结果候选词的代码，在visualize_attention.py中。
++ 模型里面增加了inference，见model.py中的函数。
 
-Method | enwiki8 | text8 | One Billion Word | WT-103 | PTB (w/o finetuning)
--- | -- | -- | -- | -- | -- 
-Previous Best | 1.06 | 1.13 | 23.7 | 20.5 | 55.5
-Transformer-XL | **0.99** | **1.08** | **21.8** | **18.3** | **54.5**
+### 使用
 
++ 以小说训练为例，其他同理，古诗对应shi_base_gpu， 日常话题对应zhihu_base_gpu（在 tf 目录下执行）
 
+  先进行数据准备,具体参数设置在doupo_base_gpu中调节
 
-## Acknowledgement
+  bash scripts/doupo_base_gpu  train_data
 
-A large portion of the `getdata.sh` script comes from the [awd-lstm](https://github.com/salesforce/awd-lstm-lm/) repo. Happy Language Modeling :)
+  训练 ：
+
+  bash scripts/doupo_base_gpu train
+
+  inference：
+
+  bash scripts/doupo_base_gpu inference
+
+### 引入新的训练数据训练（针对中文，若要训练英文，直接用tf下的old_vocabulary.py 替换vocabulary.py  ）
+
++ 首先在data目录下，建立新的文件夹，名字随意，然后将训练数据重命名为train.txt和valid.txt。
++ 在tf/scripts 目录下建立新的bash脚本，名字随意，内容可以先复制已存在的脚本，然后将路径名更改成上一步新建的路径，并修改其他相应的名字。
++ 在tf 下执行bash scripts/[新的bash脚本名字] train_data
++ 再执行 bash scripts/[新的bash脚本名字] train 进行训练
++ 最后执行  bash scripts/[新的bash脚本名字] inference 进行测试。
