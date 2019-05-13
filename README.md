@@ -51,7 +51,7 @@
 + 模型里面增加了inference，见model.py中的函数。
 
 ### requirements
-python3
+python3;
 tf >=1.12.0
 
 ### 使用
