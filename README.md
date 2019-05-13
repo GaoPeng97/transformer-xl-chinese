@@ -50,6 +50,10 @@
 + 增加了可视化每一层attention以及查看每个结果候选词的代码，在visualize_attention.py中。
 + 模型里面增加了inference，见model.py中的函数。
 
+### requirements
+python3
+tf >=1.12.0
+
 ### 使用
 
 + 以小说训练为例，其他同理，古诗对应shi_base_gpu， 日常话题对应zhihu_base_gpu（在 tf 目录下执行）
