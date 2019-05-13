@@ -3,7 +3,7 @@
 #!/bin/bash
 
 # Data
-DATA_ROOT=../data/poetry/
+DATA_ROOT=../data/tangshi/
 
 # Model
 DIV_VAL=1
@@ -15,25 +15,25 @@ D_HEAD=41
 D_INNER=2100
 
 # Training
-TGT_LEN=50
-MEM_LEN=50
+TGT_LEN=100
+MEM_LEN=100
 
 
-BSZ=64
-NUM_CORE=2
+BSZ=128
+NUM_CORE=4
 
 # Testing
 TEST_TGT_LEN=50
 TEST_MEM_LEN=100
 TEST_CLAMP_LEN=400
 
-TEST_BSZ=10
+TEST_BSZ=1
 TEST_NUM_CORE=1
 
 if [[ $1 == 'train_data' ]]; then
     python data_utils_chinese.py \
         --data_dir=${DATA_ROOT}/ \
-        --dataset=poetry \
+        --dataset=tangshi \
         --tgt_len=${TGT_LEN} \
         --per_host_train_bsz=${BSZ} \
         --per_host_valid_bsz=${BSZ} \
@@ -43,7 +43,7 @@ if [[ $1 == 'train_data' ]]; then
 elif [[ $1 == 'test_data' ]]; then
     python data_utils_chinese.py \
         --data_dir=${DATA_ROOT}/ \
-        --dataset=poetry \
+        --dataset=tangshi \
         --tgt_len=${TEST_TGT_LEN} \
         --per_host_test_bsz=${TEST_BSZ} \
         --num_passes=1 \
@@ -51,11 +51,11 @@ elif [[ $1 == 'test_data' ]]; then
         ${@:2}
 elif [[ $1 == 'train' ]]; then
     echo 'Run training...'
- CUDA_VISIBLE_DEVICES='8,9'   python train_gpu.py \
+ CUDA_VISIBLE_DEVICES='0,1,2,3'   python train_gpu.py \
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
-        --model_dir=EXP-poetry_mem50 \
+        --model_dir=EXP-tangshi \
         --div_val=${DIV_VAL} \
         --untie_r=True \
         --proj_share_all_but_first=True \
@@ -69,7 +69,7 @@ elif [[ $1 == 'train' ]]; then
         --dropatt=0.0 \
         --learning_rate=0.0001 \
         --warmup_steps=0 \
-        --train_steps=400000 \
+        --train_steps=1000000 \
         --tgt_len=${TGT_LEN} \
         --mem_len=${MEM_LEN} \
         --train_batch_size=${BSZ} \
@@ -83,7 +83,7 @@ elif [[ $1 == 'inference' ]]; then
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
-        --model_dir=EXP-poetry_mem50 \
+        --model_dir=EXP-tangshi \
         --div_val=${DIV_VAL} \
         --untie_r=True \
         --proj_share_all_but_first=True \

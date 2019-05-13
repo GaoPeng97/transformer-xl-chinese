@@ -22,6 +22,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 from visualize_attention import visualize_attention_per_head, visualize_prob, visualize_attention_per_layer
+from postprocess import top_one_result, gen_on_keyword, gen_diversity
 
 # GPU config
 flags.DEFINE_integer("num_hosts", default=1,
@@ -496,13 +497,6 @@ def main(unused_argv):
 
 # new added by pgao
 def inference(n_token, cutoffs, ps_device):
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '9'
-    # input_text = "被美杜莎一阵喝斥，那体型壮硕的墨巴斯却是没有丝毫的不耐，无奈的点了点头，不过他看向美杜莎的那眼神，却是充斥着颇为浓烈的爱慕与尊崇。 对着萧炎再次丢了一个阴沉的眼神，" \
-    #              "那墨巴斯方才有些不甘的退到一 旁。 见到那家伙退开，萧炎方才散去拳又之上的碧绿火焰，对于他为何会对自己如此不满，或许从他看向美杜莎的目光中便是能够知道一点端倪，不过这到" \
-    #              "并未令得萧炎如何的记挂，目光在这院落中一扫，眉头却是微微一皱，这占地面积不小的院落中，有着不少蛇人的身影，" \
-    #              "而且看这些家伙的气息，明显都是蛇人族中的顶尖好手，而且那日被他救过一次的月媚也在其中。 这些蛇人族强者望向萧炎的眼神中皆是充斥着些许好奇，显然先前他一拳将墨巴斯震"
-
-    # input_text = "要不是族长是"
     dataset_name = "doupo"
     tmp_Vocab = Vocab()
     tmp_Vocab.count_file("../data/{}/train.txt".format(dataset_name), add_eos=False)
@@ -581,7 +575,11 @@ def inference(n_token, cutoffs, ps_device):
 
         # attention_score = tf.get_variable('transformer/layer_2/rel_attn/transpose_1:0')
 
-        fetches = [tower_new_mems, tower_output, tower_new_mems_id, tower_attn_prob]
+        fetches = [tower_new_mems,
+                   tower_output,
+                   tower_new_mems_id,
+                   tower_attn_prob,
+                   'transformer/adaptive_embed/lookup_table:0']
 
         while True:
             input_text = input("seed text >>> ")
@@ -595,7 +593,7 @@ def inference(n_token, cutoffs, ps_device):
                 f.write('input:\n')
                 f.write(input_text+'\n')
 
-            output_len = 1000
+            output_len = 200
             progress = ProgressBar()
             for step in progress(range(output_len)):
                 time.sleep(0.01)
@@ -615,35 +613,40 @@ def inference(n_token, cutoffs, ps_device):
                 tower_mems_id_np = fetched[2]
 
                 attn_prob = fetched[3]
+                lookup_table = fetched[4]
                 # print(attention_score)
-                # print(np.array(attn_prob).shape)
+                # print(np.array(lookup_table).shape)
                 # print(np.array(tower_mems_id_np).shape)
 
                 tmp_list = output[0][-1][0]
                 tmp_list = tmp_list.tolist()
-                index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[:1]
 
-                if(index_list[0] == tmp_Vocab.get_idx(' ')):
-                    index_list = sorted(range(len(tmp_list)), key=lambda k: tmp_list[k], reverse=True)[1:2]
+                # todo 取top1
+                index = top_one_result(tmp_list)
+                # todo diversity
+                # index = gen_diversity(tmp_list)
+                # todo base on keyword
+                # index = gen_on_keyword(tmp_Vocab, '喜', tmp_list, lookup_table)
 
-                index = random.sample(index_list, 1)[0]
-                # todo 设置阈值随机选取候选词
-                # if(float(tmp_list[index_list[0]]) / tmp_list[index_list[1]] > 1.5):
-                #     index = index_list[0]
-                # todo 可视化候选词
-                # visualize_prob(tmp_Vocab, tmp_list, '../exp_result/{}/candidates'.format(dataset_name), len(input_text))
+                # # todo 可视化候选词
+                # visualize_prob(tmp_Vocab, tmp_list,
+                # '../exp_result/{}/candidates'.format(dataset_name+'mem_len500'), len(input_text))
+
+                # # # todo 可视化attention per layer
+                # visualize_attention_per_layer(tmp_Vocab, tower_mems_id_np, attn_prob, index,
+                #                               '../exp_result/{}/attention_per_layer'.format(dataset_name+'mem_len500'),
+                #                               len(input_text))
+
+                # # # todo 可视化attention per head
+                # visualize_attention_per_head(tmp_Vocab, tower_mems_id_np, attn_prob, index,
+                #                              '../exp_result/{}/attention_per_head'.format(dataset_name+'_repeat'),
+                #                              len(input_text))
+
                 input_text += tmp_Vocab.get_sym(index) if tmp_Vocab.get_sym(index) != '<eos>' else '\n'
                 encoded_input = [index]
 
-                # # todo 可视化attention per layer
-                # visualize_attention_per_layer(tmp_Vocab, tower_mems_id_np, attn_prob, index,
-                #                               '../exp_result/{}/attention_per_layer'.format(dataset_name), len(input_text))
-                # #
-                # # todo 可视化attention per head
-                # visualize_attention_per_head(tmp_Vocab, tower_mems_id_np, attn_prob, index,
-                #                              '../exp_result/{}/attention_per_layer'.format(dataset_name), len(input_text))
-
             print(input_text)
+
             with open('{}.txt'.format(dataset_name), 'a') as f:
                 f.write('output:\n')
                 f.write(input_text+'\n')

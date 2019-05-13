@@ -31,7 +31,7 @@ NUM_CORE=4
 
 
 TEST_TGT_LEN=100
-TEST_MEM_LEN=300
+TEST_MEM_LEN=500
 TEST_CLAMP_LEN=400
 
 TEST_BSZ=1
@@ -93,7 +93,7 @@ elif [[ $1 == 'inference' ]]; then
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
-        --model_dir=EXP-test-1e4-80k \
+        --model_dir=EXP-test-1e4-500k \
         --div_val=${DIV_VAL} \
         --untie_r=True \
         --proj_share_all_but_first=True \

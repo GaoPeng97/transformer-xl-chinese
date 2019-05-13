@@ -11,7 +11,7 @@ my_font = FontProperties(fname=font_file)
 def visualize_attention_per_head(tmp_Vocab, tower_mems_id_np, attn_prob, next_word_index, file_path, length):
     # todo 作图
     head_num = 10
-    xLabel = tmp_Vocab.get_symbols([tower_mems_id_np[0][0][i][0] for i in range(100)])
+    xLabel = tmp_Vocab.get_symbols([tower_mems_id_np[0][0][i][0] for i in range(-100, 0, 1)])
     yLabel = list(range(0, 16))
 
     datas = []
@@ -26,7 +26,7 @@ def visualize_attention_per_head(tmp_Vocab, tower_mems_id_np, attn_prob, next_wo
         datas.append(data)
 
     # 作图阶段
-    fig = plt.figure(figsize=(36, 36))
+    fig = plt.figure(figsize=(48, 48))
 
     for k in range(head_num):
         ax = fig.add_subplot(5, 2, k+1)
