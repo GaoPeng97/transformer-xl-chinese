@@ -55,7 +55,7 @@ elif [[ $1 == 'train' ]]; then
         --data_dir=${DATA_ROOT}/tfrecords \
         --record_info_dir=${DATA_ROOT}/tfrecords/ \
         --corpus_info_path=${DATA_ROOT}/corpus-info.json \
-        --model_dir=EXP-tangshi \
+        --model_dir=EXP-tangshi-450k \
         --div_val=${DIV_VAL} \
         --untie_r=True \
         --proj_share_all_but_first=True \
@@ -69,7 +69,7 @@ elif [[ $1 == 'train' ]]; then
         --dropatt=0.0 \
         --learning_rate=0.0001 \
         --warmup_steps=0 \
-        --train_steps=1000000 \
+        --train_steps=450000 \
         --tgt_len=${TGT_LEN} \
         --mem_len=${MEM_LEN} \
         --train_batch_size=${BSZ} \
@@ -102,7 +102,7 @@ elif [[ $1 == 'inference' ]]; then
         --eval_batch_size=${TEST_BSZ} \
         --num_core_per_host=${TEST_NUM_CORE} \
         --do_train=False \
-        --do_eval=True \
+        --do_inference=True \
         --eval_split=test \
         ${@:2}
 

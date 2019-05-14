@@ -112,7 +112,8 @@ elif [[ $1 == 'inference' ]]; then
         --eval_batch_size=${TEST_BSZ} \
         --num_core_per_host=${TEST_NUM_CORE} \
         --do_train=False \
-        --do_eval=True \
+        --do_eval=False \
+        --do_inference=True \
         --eval_split=test \
         ${@:2}
 

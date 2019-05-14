@@ -43,6 +43,9 @@ flags.DEFINE_bool("do_train", default=True,
                   help="Whether to run training.")
 flags.DEFINE_bool("do_eval", default=False,
                   help="Whether to run eval on the dev set.")
+flags.DEFINE_bool("do_inference", default=False,
+                  help="Whether to run eval on the dev set.")
+
 flags.DEFINE_string("eval_ckpt_path", None,
                     help="Checkpoint path for do_test evaluation."
                          "If set, model_dir will be ignored."
@@ -491,13 +494,14 @@ def main(unused_argv):
     if FLAGS.do_train:
         train(n_token, cutoffs, "/gpu:0")
     if FLAGS.do_eval:
-        # evaluate(n_token, cutoffs, "/gpu:0")
+        evaluate(n_token, cutoffs, "/gpu:0")
+    if FLAGS.do_inference:
         inference(n_token, cutoffs, "/gpu:0")
 
 
 # new added by pgao
 def inference(n_token, cutoffs, ps_device):
-    dataset_name = "doupo"
+    dataset_name = "tangshi"
     tmp_Vocab = Vocab()
     tmp_Vocab.count_file("../data/{}/train.txt".format(dataset_name), add_eos=False)
     tmp_Vocab.build_vocab()
@@ -621,6 +625,7 @@ def inference(n_token, cutoffs, ps_device):
                 tmp_list = output[0][-1][0]
                 tmp_list = tmp_list.tolist()
 
+                # 下面是对结果的6种处理方式，若需要就保留，然后注释掉其他几种
                 # todo 取top1
                 index = top_one_result(tmp_list)
                 # todo diversity
