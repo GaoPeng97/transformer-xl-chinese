@@ -68,7 +68,7 @@ tf >=1.12.0
 
   inference：
 
-  bash scripts/doupo_base_gpu inference
+  bash scripts/doupo_base_gpu inference  （注意在inference的时候记得修改train_gpu.py中第504行，改成你想inference的数据集名字）
 
 ### 引入新的训练数据训练（针对中文，若要训练英文，直接用tf下的old_vocabulary.py 替换vocabulary.py  ）
 
@@ -77,3 +77,8 @@ tf >=1.12.0
 + 在tf 下执行bash scripts/[新的bash脚本名字] train_data
 + 再执行 bash scripts/[新的bash脚本名字] train 进行训练
 + 最后执行  bash scripts/[新的bash脚本名字] inference 进行测试。
+
+### 可视化每个head 每个layer 的attention， 
+在train_gpu.py里inference 函数中对应的位置，打了todo标记，默认是head 10个 layer 16，若不同自行修改visualize_attention.py中的对应部分。
+可视化效果如：
+（sorry 不晓得照片怎么导入。。。 /(ㄒoㄒ)/~~）
