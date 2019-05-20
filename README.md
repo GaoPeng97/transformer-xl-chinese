@@ -81,4 +81,5 @@ tf >=1.12.0
 ### 可视化每个head 每个layer 的attention， 
 在train_gpu.py里inference 函数中对应的位置，打了todo标记，默认是head 10个 layer 16，若不同自行修改visualize_attention.py中的对应部分。
 可视化效果如：
-（sorry 不晓得照片怎么导入。。。 /(ㄒoㄒ)/~~）
+
+（sorry 不晓得照片怎么导入。。。 /(ㄒoㄒ)/~~） 去tf/attention_pic 查看吧

@@ -501,7 +501,7 @@ def main(unused_argv):
 
 # new added by pgao
 def inference(n_token, cutoffs, ps_device):
-    dataset_name = "tangshi"
+    dataset_name = "doupo"
     tmp_Vocab = Vocab()
     tmp_Vocab.count_file("../data/{}/train.txt".format(dataset_name), add_eos=False)
     tmp_Vocab.build_vocab()
