@@ -60,15 +60,15 @@ tf >=1.12.0
 
   先进行数据准备,具体参数设置在doupo_base_gpu中调节
 
-  bash scripts/doupo_base_gpu  train_data
+  bash scripts/doupo_base_gpu.sh  train_data
 
   训练 ：
 
-  bash scripts/doupo_base_gpu train
+  bash scripts/doupo_base_gpu.sh train
 
   inference：
 
-  bash scripts/doupo_base_gpu inference  （注意在inference的时候记得修改train_gpu.py中第504行，改成你想inference的数据集名字）
+  bash scripts/doupo_base_gpu.sh inference  （注意在inference的时候记得修改train_gpu.py中第504行，改成你想inference的数据集名字）
 
 ### 引入新的训练数据训练（针对中文，若要训练英文，直接用tf下的old_vocabulary.py 替换vocabulary.py  ）
 
