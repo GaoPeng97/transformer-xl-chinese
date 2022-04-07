@@ -44,7 +44,7 @@
 
 ### 介绍
 
-实现了基于tranformer xl进行文本生成任务，代码基于https://github.com/kimiyoung/transformer-xl。  也从这里看起，有基本了解，感谢他们的工作。主要改动在下面几个地方：
+实现了基于tranformer xl进行文本生成任务，代码基于https://github.com/kimiyoung/transformer-xl 。  也从这里看起，有基本了解，感谢他们的工作。主要改动在下面几个地方：
 
 + 原本的代码只有training 和 eval，增加了inference 部分，主要在train_gpu中增加了inference 函数以及相应函数的改变。
 + 增加了可视化每一层attention以及查看每个结果候选词的代码，在visualize_attention.py中。
@@ -81,5 +81,4 @@ tf >=1.12.0
 ### 可视化每个head 每个layer 的attention， 
 在train_gpu.py里inference 函数中对应的位置，打了todo标记，默认是head 10个 layer 16，若不同自行修改visualize_attention.py中的对应部分。
 可视化效果如：
-
-（sorry 不晓得照片怎么导入。。。 /(ㄒoㄒ)/~~） 去tf/attention_pic 查看吧
+![image](https://github.com/GaoPeng97/transformer-xl-chinese/blob/master/tf/attention_pic/36住.png)
